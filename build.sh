@@ -30,7 +30,8 @@ swiftc \
     -framework QuartzCore \
     -framework ImageIO \
     -framework UniformTypeIdentifiers \
-    -framework CoreMedia
+    -framework CoreMedia \
+    -framework Vision
 
 echo "==> 打包 Info.plist"
 cp Info.plist "$APP/Contents/Info.plist"

@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Build output
+.build/
+Glint.app/
+*.zip
+
+# Xcode / user state
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# Temporary captures used during development
+*.mp4
+
+# Disk images
+*.dmg

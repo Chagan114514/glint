@@ -16,6 +16,8 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     var onRecord: (() -> Void)?
     var onOpenRecent: ((CaptureItem) -> Void)?
     var onRequestPermission: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
+    var onScrollCapture: (() -> Void)?
     var onOpenImageFolder: (() -> Void)?
     var onOpenVideoFolder: (() -> Void)?
 
@@ -30,6 +32,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         configureWindow()
         buildUI()
         NotificationCenter.default.addObserver(self, selector: #selector(libraryChanged), name: CaptureLibrary.libraryChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(libraryChanged), name: CaptureLibrary.settingsChanged, object: nil)
         refreshPermission()
         reloadRecent()
     }
@@ -127,6 +130,9 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         headerView.onPermissionTapped = { [weak self] in
             self?.onRequestPermission?()
         }
+        headerView.onSettingsTapped = { [weak self] in
+            self?.onOpenSettings?()
+        }
         permissionBanner.onAuthorize = { [weak self] in
             self?.onRequestPermission?()
         }
@@ -138,7 +144,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         view.translatesAutoresizingMaskIntoConstraints = false
         let title = makeLabel("快速开始", size: 13, weight: .semibold, color: Palette.text.withAlphaComponent(0.88))
         view.addSubview(title)
-        let hint = makeLabel("全局快捷键 ⌃⌥1 — ⌃⌥4", size: 10.5, weight: .medium, color: Palette.textTertiary)
+        let hint = makeLabel("全局快捷键 ⌃⌥1 — ⌃⌥6", size: 10.5, weight: .medium, color: Palette.textTertiary)
         view.addSubview(hint)
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -177,6 +183,15 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         )
         full.onClick = { [weak self] in self?.onFullScreen?() }
 
+        let scroll = ActionCardView(
+            title: "滚动截图",
+            subtitle: "自动拼接长页面",
+            symbol: "scroll",
+            shortcut: "⌃⌥6",
+            accent: NSColor(hex: 0x62A8FF)
+        )
+        scroll.onClick = { [weak self] in self?.onScrollCapture?() }
+
         let record = ActionCardView(
             title: "屏幕录制",
             subtitle: "全屏、区域或窗口",
@@ -186,10 +201,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         )
         record.onClick = { [weak self] in self?.onRecord?() }
 
-        let row = NSStackView(views: [area, windowCard, full, record])
+        let row = NSStackView(views: [area, windowCard, full, scroll, record])
         row.orientation = .horizontal
         row.distribution = .fillEqually
-        row.spacing = 14
+        row.spacing = 12
         row.translatesAutoresizingMaskIntoConstraints = false
         return row
     }
@@ -221,9 +236,9 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private func makeFooter() -> NSView {
         let view = NSView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        let left = makeLabel("自动保存到 图片/Glint 与 影片/Glint · 全部数据仅保留在本机", size: 9.5, weight: .regular, color: Palette.textTertiary)
+        let left = makeLabel("支持自定义截图 / 录屏保存目录 · 全部数据仅保留在本机", size: 9.5, weight: .regular, color: Palette.textTertiary)
         view.addSubview(left)
-        let right = makeLabel("Glint 1.0", size: 9.5, weight: .medium, color: Palette.textTertiary)
+        let right = makeLabel("Glint 1.1", size: 9.5, weight: .medium, color: Palette.textTertiary)
         view.addSubview(right)
         NSLayoutConstraint.activate([
             left.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -357,7 +372,9 @@ private final class DashboardHeaderView: NSView {
     private let subtitle = NSTextField(labelWithString: "截屏 · 录屏 · 一气呵成")
     private let permissionPill = PermissionPill()
     private let shortcutBadge = ShortcutBadge()
+    private let settingsButton = GlintIconButton(symbol: "gearshape", size: 13)
     var onPermissionTapped: (() -> Void)?
+    var onSettingsTapped: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -381,6 +398,11 @@ private final class DashboardHeaderView: NSView {
         addSubview(permissionPill)
         addSubview(shortcutBadge)
 
+        settingsButton.target = self
+        settingsButton.action = #selector(settingsTapped)
+        settingsButton.toolTip = "设置"
+        addSubview(settingsButton)
+
         NSLayoutConstraint.activate([
             logo.leadingAnchor.constraint(equalTo: leadingAnchor),
             logo.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -393,7 +415,12 @@ private final class DashboardHeaderView: NSView {
             subtitle.leadingAnchor.constraint(equalTo: title.leadingAnchor, constant: 1),
             subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: -2),
 
-            shortcutBadge.trailingAnchor.constraint(equalTo: trailingAnchor),
+            settingsButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            settingsButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            settingsButton.widthAnchor.constraint(equalToConstant: 28),
+            settingsButton.heightAnchor.constraint(equalToConstant: 28),
+
+            shortcutBadge.trailingAnchor.constraint(equalTo: settingsButton.leadingAnchor, constant: -8),
             shortcutBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
             shortcutBadge.widthAnchor.constraint(equalToConstant: 104),
             shortcutBadge.heightAnchor.constraint(equalToConstant: 28),
@@ -409,6 +436,10 @@ private final class DashboardHeaderView: NSView {
 
     func setPermission(granted: Bool) {
         permissionPill.granted = granted
+    }
+
+    @objc private func settingsTapped() {
+        onSettingsTapped?()
     }
 }
 
@@ -501,7 +532,7 @@ private final class ShortcutBadge: NSView {
             .tinted(with: Palette.textTertiary)
         icon?.draw(in: NSRect(x: 12, y: bounds.midY - 6, width: 15, height: 12), from: .zero, operation: .sourceOver, fraction: 1)
 
-        let text = "⌃⌥ 1–4"
+        let text = "⌃⌥ 1–6"
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold),
             .foregroundColor: Palette.textSecondary,

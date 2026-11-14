@@ -96,22 +96,53 @@ enum ScreenPermission {
 // MARK: - Preferences
 
 enum Prefs {
-    private static let audioKey = "GlintRecordSystemAudio"
-
-    static var includeSystemAudio: Bool {
-        get {
-            if UserDefaults.standard.object(forKey: audioKey) == nil { return true }
-            return UserDefaults.standard.bool(forKey: audioKey)
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: audioKey)
-        }
-    }
-
     static var hasLaunchedBefore: Bool {
         get { UserDefaults.standard.bool(forKey: "GlintHasLaunched") }
         set { UserDefaults.standard.set(newValue, forKey: "GlintHasLaunched") }
     }
+
+    private static let audioSourceKey = "GlintAudioSource"
+    private static let microphoneKey = "GlintMicrophoneDeviceID"
+
+    static var audioSource: AudioSource {
+        get {
+            let raw = UserDefaults.standard.string(forKey: audioSourceKey) ?? AudioSource.system.rawValue
+            return AudioSource(rawValue: raw) ?? .system
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: audioSourceKey)
+        }
+    }
+
+    static var microphoneDeviceID: String? {
+        get { UserDefaults.standard.string(forKey: microphoneKey) }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: microphoneKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: microphoneKey)
+            }
+        }
+    }
+}
+
+enum AudioSource: String, CaseIterable {
+    case none
+    case system
+    case microphone
+    case both
+
+    var title: String {
+        switch self {
+        case .none: return "不录制声音"
+        case .system: return "系统声音"
+        case .microphone: return "麦克风"
+        case .both: return "系统声音 + 麦克风"
+        }
+    }
+
+    var usesSystemAudio: Bool { self == .system || self == .both }
+    var usesMicrophone: Bool { self == .microphone || self == .both }
 }
 
 // MARK: - Library
@@ -119,9 +150,10 @@ enum Prefs {
 final class CaptureLibrary {
     static let shared = CaptureLibrary()
     static let libraryChanged = Notification.Name("GlintLibraryChanged")
+    static let settingsChanged = Notification.Name("GlintSettingsChanged")
 
-    let imageDirectory: URL
-    let videoDirectory: URL
+    private let imageDirectoryKey = "GlintImageDirectory"
+    private let videoDirectoryKey = "GlintVideoDirectory"
 
     private let fileManager = FileManager.default
     private let fileNameFormatter: DateFormatter = {
@@ -131,15 +163,72 @@ final class CaptureLibrary {
         return formatter
     }()
 
-    private init() {
+    var defaultImageDirectory: URL {
         let pictures = fileManager.urls(for: .picturesDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Pictures", isDirectory: true)
+        return pictures.appendingPathComponent("Glint", isDirectory: true)
+    }
+
+    var defaultVideoDirectory: URL {
         let movies = fileManager.urls(for: .moviesDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Movies", isDirectory: true)
-        imageDirectory = pictures.appendingPathComponent("Glint", isDirectory: true)
-        videoDirectory = movies.appendingPathComponent("Glint", isDirectory: true)
-        try? fileManager.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
-        try? fileManager.createDirectory(at: videoDirectory, withIntermediateDirectories: true)
+        return movies.appendingPathComponent("Glint", isDirectory: true)
+    }
+
+    var imageDirectory: URL {
+        let path = UserDefaults.standard.string(forKey: imageDirectoryKey)
+        return ensuredDirectory(path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? defaultImageDirectory)
+    }
+
+    var videoDirectory: URL {
+        let path = UserDefaults.standard.string(forKey: videoDirectoryKey)
+        return ensuredDirectory(path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? defaultVideoDirectory)
+    }
+
+    var isUsingDefaultImageDirectory: Bool {
+        UserDefaults.standard.string(forKey: imageDirectoryKey) == nil
+    }
+
+    var isUsingDefaultVideoDirectory: Bool {
+        UserDefaults.standard.string(forKey: videoDirectoryKey) == nil
+    }
+
+    private init() {
+        _ = imageDirectory
+        _ = videoDirectory
+    }
+
+    func setImageDirectory(_ url: URL) throws {
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        UserDefaults.standard.set(url.standardizedFileURL.path, forKey: imageDirectoryKey)
+        NotificationCenter.default.post(name: Self.settingsChanged, object: nil)
+        NotificationCenter.default.post(name: Self.libraryChanged, object: nil)
+    }
+
+    func setVideoDirectory(_ url: URL) throws {
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        UserDefaults.standard.set(url.standardizedFileURL.path, forKey: videoDirectoryKey)
+        NotificationCenter.default.post(name: Self.settingsChanged, object: nil)
+        NotificationCenter.default.post(name: Self.libraryChanged, object: nil)
+    }
+
+    func resetImageDirectory() {
+        UserDefaults.standard.removeObject(forKey: imageDirectoryKey)
+        NotificationCenter.default.post(name: Self.settingsChanged, object: nil)
+        NotificationCenter.default.post(name: Self.libraryChanged, object: nil)
+    }
+
+    func resetVideoDirectory() {
+        UserDefaults.standard.removeObject(forKey: videoDirectoryKey)
+        NotificationCenter.default.post(name: Self.settingsChanged, object: nil)
+        NotificationCenter.default.post(name: Self.libraryChanged, object: nil)
+    }
+
+    private func ensuredDirectory(_ url: URL) -> URL {
+        if !fileManager.fileExists(atPath: url.path) {
+            try? fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+        return url
     }
 
     func imageURL() -> URL {
@@ -150,7 +239,34 @@ final class CaptureLibrary {
         uniqueURL(in: videoDirectory, prefix: "Glint_Record", ext: "mp4")
     }
 
-    private func uniqueURL(in directory: URL, prefix: String, ext: String) -> URL {
+    func annotatedURL(for original: URL) -> URL {
+        let directory = original.deletingLastPathComponent()
+        let base = original.deletingPathExtension().lastPathComponent
+        var candidate = directory.appendingPathComponent("\(base)-annotated.png")
+        var index = 2
+        while fileManager.fileExists(atPath: candidate.path) {
+            candidate = directory.appendingPathComponent("\(base)-annotated-\(index).png")
+            index += 1
+        }
+        return candidate
+    }
+
+    func cgImage(at url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    func imageScale(at url: URL) -> CGFloat {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let dpi = properties[kCGImagePropertyDPIWidth] as? Double,
+              dpi > 0 else {
+            return 1
+        }
+        return CGFloat(dpi / 72.0)
+    }
+
+    func uniqueURL(in directory: URL, prefix: String, ext: String) -> URL {
         let stamp = fileNameFormatter.string(from: Date())
         var candidate = directory.appendingPathComponent("\(prefix)_\(stamp).\(ext)")
         var index = 2

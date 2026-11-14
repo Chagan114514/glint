@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Glint
+        run: ./build.sh
+
+      - name: Package app
+        run: ditto -c -k --norsrc --noextattr --keepParent Glint.app Glint.zip
+
+      - name: Build DMG
+        run: ./make-dmg.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Glint-macOS
+          path: |
+            Glint.zip
+            Glint-1.1.dmg

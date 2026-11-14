@@ -4,11 +4,13 @@ final class AreaSelectorController: NSObject, NSWindowDelegate {
     enum Purpose {
         case screenshot
         case recording
+        case scrolling
 
         var accent: NSColor {
             switch self {
             case .screenshot: return Palette.accent
             case .recording: return Palette.danger
+            case .scrolling: return NSColor(hex: 0x62A8FF)
             }
         }
 
@@ -16,6 +18,15 @@ final class AreaSelectorController: NSObject, NSWindowDelegate {
             switch self {
             case .screenshot: return "拖动框选截图区域"
             case .recording: return "拖动框选录制区域"
+            case .scrolling: return "拖动框选滚动截图区域"
+            }
+        }
+
+        var hint: String {
+            switch self {
+            case .screenshot: return "松开后立即截图"
+            case .recording: return "松开后开始录制"
+            case .scrolling: return "松开后开始滚动截图"
             }
         }
     }
@@ -326,7 +337,7 @@ private final class SelectionView: NSView {
         )
 
         // Hint under the badge.
-        let hint = purpose == .recording ? "松开后开始录制" : "松开后立即截图"
+        let hint = purpose.hint
         let hintAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
             .foregroundColor: NSColor.white.withAlphaComponent(0.68),

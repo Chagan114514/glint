@@ -17,7 +17,9 @@ final class HotKeyManager {
         area: @escaping () -> Void,
         window: @escaping () -> Void,
         fullScreen: @escaping () -> Void,
-        record: @escaping () -> Void
+        record: @escaping () -> Void,
+        pause: @escaping () -> Void,
+        scroll: @escaping () -> Void
     ) {
         installHandlerIfNeeded()
         unregisterAll()
@@ -26,11 +28,15 @@ final class HotKeyManager {
         actions[2] = window
         actions[3] = fullScreen
         actions[4] = record
+        actions[5] = pause
+        actions[6] = scroll
 
         register(id: 1, keyCode: UInt32(kVK_ANSI_1), label: "⌃⌥1")
         register(id: 2, keyCode: UInt32(kVK_ANSI_2), label: "⌃⌥2")
         register(id: 3, keyCode: UInt32(kVK_ANSI_3), label: "⌃⌥3")
         register(id: 4, keyCode: UInt32(kVK_ANSI_4), label: "⌃⌥4")
+        register(id: 5, keyCode: UInt32(kVK_ANSI_5), label: "⌃⌥5")
+        register(id: 6, keyCode: UInt32(kVK_ANSI_6), label: "⌃⌥6")
     }
 
     private func installHandlerIfNeeded() {

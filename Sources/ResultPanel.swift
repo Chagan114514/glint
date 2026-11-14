@@ -14,7 +14,11 @@ final class ResultPanelController: NSObject, NSWindowDelegate {
     private let statusLabel = NSTextField(labelWithString: "")
     private let copyButton = GlintButton(title: "复制", style: .secondary)
     private let exportButton = GlintButton(title: "导出…", style: .primary)
+    private let ocrButton = GlintButton(title: "OCR", style: .secondary)
+    private let annotateButton = GlintButton(title: "批注", style: .secondary)
     private let revealButton = GlintIconButton(symbol: "folder", size: 14)
+    private var ocrPanel: OCRPanelController?
+    private var annotationEditor: AnnotationEditorController?
     private var player: AVPlayer?
     private let onClose: (() -> Void)?
     private let isFreshCapture: Bool
@@ -67,6 +71,10 @@ final class ResultPanelController: NSObject, NSWindowDelegate {
         guard !closed else { return }
         closed = true
         player?.pause()
+        ocrPanel?.close()
+        annotationEditor?.close()
+        ocrPanel = nil
+        annotationEditor = nil
         panel.orderOut(nil)
         onClose?()
     }
@@ -198,13 +206,24 @@ final class ResultPanelController: NSObject, NSWindowDelegate {
         exportButton.setSymbol("square.and.arrow.up")
         root.addSubview(exportButton)
 
+        ocrButton.target = self
+        ocrButton.action = #selector(ocrTapped)
+        ocrButton.setSymbol("text.viewfinder")
+        ocrButton.toolTip = "识别截图中的文字"
+        ocrButton.isHidden = isVideo
+        root.addSubview(ocrButton)
+
+        annotateButton.target = self
+        annotateButton.action = #selector(annotateTapped)
+        annotateButton.setSymbol("pencil.tip")
+        annotateButton.toolTip = "在截图上添加批注"
+        annotateButton.isHidden = isVideo
+        root.addSubview(annotateButton)
+
         revealButton.target = self
         revealButton.action = #selector(revealTapped)
         revealButton.toolTip = "在 Finder 中显示"
         root.addSubview(revealButton)
-
-        let hint = makeLabel("\(isVideo ? "视频" : "图片")已保存到 \(isVideo ? "影片/Glint" : "图片/Glint")", size: 10, weight: .regular, color: Palette.textTertiary)
-        root.addSubview(hint)
 
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
@@ -230,22 +249,30 @@ final class ResultPanelController: NSObject, NSWindowDelegate {
 
             copyButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             copyButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -18),
-            copyButton.widthAnchor.constraint(equalToConstant: 88),
+            copyButton.widthAnchor.constraint(equalToConstant: 76),
             copyButton.heightAnchor.constraint(equalToConstant: 32),
 
             exportButton.leadingAnchor.constraint(equalTo: copyButton.trailingAnchor, constant: 8),
             exportButton.centerYAnchor.constraint(equalTo: copyButton.centerYAnchor),
-            exportButton.widthAnchor.constraint(equalToConstant: 96),
+            exportButton.widthAnchor.constraint(equalToConstant: 88),
             exportButton.heightAnchor.constraint(equalToConstant: 32),
+
+            ocrButton.leadingAnchor.constraint(equalTo: exportButton.trailingAnchor, constant: 8),
+            ocrButton.centerYAnchor.constraint(equalTo: copyButton.centerYAnchor),
+            ocrButton.widthAnchor.constraint(equalToConstant: 76),
+            ocrButton.heightAnchor.constraint(equalToConstant: 32),
+
+            annotateButton.leadingAnchor.constraint(equalTo: ocrButton.trailingAnchor, constant: 8),
+            annotateButton.centerYAnchor.constraint(equalTo: copyButton.centerYAnchor),
+            annotateButton.widthAnchor.constraint(equalToConstant: 76),
+            annotateButton.heightAnchor.constraint(equalToConstant: 32),
 
             revealButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -18),
             revealButton.centerYAnchor.constraint(equalTo: copyButton.centerYAnchor),
             revealButton.widthAnchor.constraint(equalToConstant: 32),
             revealButton.heightAnchor.constraint(equalToConstant: 32),
 
-            hint.trailingAnchor.constraint(equalTo: revealButton.leadingAnchor, constant: -8),
-            hint.centerYAnchor.constraint(equalTo: copyButton.centerYAnchor),
-            hint.leadingAnchor.constraint(greaterThanOrEqualTo: exportButton.trailingAnchor, constant: 6),
+            revealButton.leadingAnchor.constraint(greaterThanOrEqualTo: annotateButton.trailingAnchor, constant: 6),
         ])
     }
 
@@ -401,6 +428,39 @@ final class ResultPanelController: NSObject, NSWindowDelegate {
                 }
             }
         }
+    }
+
+    private func currentImage() -> (CGImage, CGFloat)? {
+        switch mode {
+        case .image(let captured, let url):
+            if let captured {
+                return (captured.cgImage, captured.scale)
+            }
+            guard let image = CaptureLibrary.shared.cgImage(at: url) else { return nil }
+            return (image, CaptureLibrary.shared.imageScale(at: url))
+        case .video:
+            return nil
+        }
+    }
+
+    @objc private func ocrTapped() {
+        guard let (image, _) = currentImage() else { return }
+        ocrPanel?.close()
+        let controller = OCRPanelController(image: image) { [weak self] in
+            self?.ocrPanel = nil
+        }
+        ocrPanel = controller
+        controller.show()
+    }
+
+    @objc private func annotateTapped() {
+        guard case .image(_, let url) = mode, let (image, scale) = currentImage() else { return }
+        annotationEditor?.close()
+        let editor = AnnotationEditorController(sourceURL: url, image: image, scale: scale) { [weak self] in
+            self?.annotationEditor = nil
+        }
+        annotationEditor = editor
+        editor.show()
     }
 
     @objc private func revealTapped() {

@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingSession: RecordingSession?
     private var startingRecording = false
     private var activeSound: NSSound?
+    private var settingsWindow: SettingsWindowController?
+    private var scrollingCapture: ScrollingCaptureController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
@@ -45,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         dashboard?.refreshPermission()
+        dashboard?.refreshRecentAndLibrary()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -58,13 +61,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 beginWindowScreenshot()
             case "full", "fullscreen", "capture-screen":
                 captureFullScreen()
+            case "scroll", "scrolling", "scrolling-capture":
+                beginScrollingCapture()
             case "record", "recording":
                 showRecordChooser()
             case "stop", "stop-recording":
                 if recordingSession != nil { stopRecording() }
+            case "pause", "pause-recording":
+                togglePauseRecording()
             case "dashboard", "open":
                 dashboard.show()
-            case "settings", "permission":
+            case "settings":
+                showSettings()
+            case "permission":
                 requestPermissionFromUser()
             default:
                 break
@@ -100,8 +109,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dashboard.onRecord = { [weak self] in self?.showRecordChooser() }
         dashboard.onOpenRecent = { [weak self] item in self?.openRecent(item) }
         dashboard.onRequestPermission = { [weak self] in self?.requestPermissionFromUser() }
+        dashboard.onOpenSettings = { [weak self] in self?.showSettings() }
+        dashboard.onScrollCapture = { [weak self] in self?.beginScrollingCapture() }
         dashboard.onOpenImageFolder = { CaptureLibrary.shared.openFolder(CaptureLibrary.shared.imageDirectory) }
         dashboard.onOpenVideoFolder = { CaptureLibrary.shared.openFolder(CaptureLibrary.shared.videoDirectory) }
+        NotificationCenter.default.addObserver(forName: CaptureLibrary.settingsChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.dashboard.refreshRecentAndLibrary()
+        }
     }
 
     // MARK: - Status item
@@ -141,7 +155,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         full.target = self
         menu.addItem(full)
 
+        let scroll = NSMenuItem(title: "滚动截图    ⌃⌥6", action: #selector(scrollScreenshotAction), keyEquivalent: "")
+        scroll.target = self
+        menu.addItem(scroll)
+
         if let session = recordingSession {
+            if !session.stopping {
+                let paused = session.recorder.isPaused
+                let pause = NSMenuItem(
+                    title: paused ? "继续录制    ⌃⌥5" : "暂停录制    ⌃⌥5",
+                    action: #selector(pauseRecordingAction),
+                    keyEquivalent: ""
+                )
+                pause.target = self
+                menu.addItem(pause)
+            }
             let stop = NSMenuItem(
                 title: session.stopping ? "正在保存录屏…" : "停止录制    ⌃⌥4",
                 action: #selector(stopRecordingAction),
@@ -182,6 +210,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(conflict)
         }
 
+        let settings = NSMenuItem(title: "设置…    ⌘,", action: #selector(openSettingsAction), keyEquivalent: "")
+        settings.target = self
+        menu.addItem(settings)
+
         let permission = NSMenuItem(title: "屏幕权限设置…", action: #selector(openPermissionSettings), keyEquivalent: "")
         permission.target = self
         menu.addItem(permission)
@@ -205,7 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .withSymbolConfiguration(config)
             image?.isTemplate = false
             button.image = image
-            button.toolTip = "Glint 正在录制"
+            button.toolTip = recordingSession?.recorder.isPaused == true ? "Glint 已暂停录制" : "Glint 正在录制"
         } else {
             let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
             let image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Glint")?
@@ -223,7 +255,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             area: { [weak self] in self?.beginAreaScreenshot() },
             window: { [weak self] in self?.beginWindowScreenshot() },
             fullScreen: { [weak self] in self?.captureFullScreen() },
-            record: { [weak self] in self?.toggleRecording() }
+            record: { [weak self] in self?.toggleRecording() },
+            pause: { [weak self] in self?.togglePauseRecording() },
+            scroll: { [weak self] in self?.beginScrollingCapture() }
         )
         updateStatusMenu()
     }
@@ -255,10 +289,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Settings
+
+    private func showSettings() {
+        if let settingsWindow {
+            settingsWindow.show()
+            return
+        }
+        let controller = SettingsWindowController { [weak self] in
+            self?.settingsWindow = nil
+        }
+        settingsWindow = controller
+        controller.show()
+    }
+
+    // MARK: - Scrolling capture
+
+    private func beginScrollingCapture() {
+        guard !hasActiveChooser, ensurePermission() else { return }
+        let selector = AreaSelectorController(purpose: .scrolling) { [weak self] selection in
+            guard let self else { return }
+            self.areaSelector = nil
+            guard let selection else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                guard let self else { return }
+                let controller = ScrollingCaptureController(
+                    selection: .init(screen: selection.screen, rect: selection.rect),
+                    scale: selection.screen.backingScaleFactor
+                )
+                controller.onFinish = { [weak self] captured, error in
+                    guard let self else { return }
+                    self.scrollingCapture = nil
+                    if let captured {
+                        self.persistImage(captured)
+                        NSApp.activate(ignoringOtherApps: true)
+                    } else if let error {
+                        self.showError(title: "滚动截图", message: error)
+                    }
+                }
+                self.scrollingCapture = controller
+                controller.begin()
+            }
+        }
+        areaSelector = selector
+        selector.begin()
+    }
+
     // MARK: - Screenshots
 
     private var hasActiveChooser: Bool {
-        areaSelector != nil || windowPicker != nil || recordChooser != nil
+        areaSelector != nil || windowPicker != nil || recordChooser != nil || scrollingCapture != nil
     }
 
     private func beginAreaScreenshot() {
@@ -361,17 +441,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         guard !startingRecording, !hasActiveChooser, ensurePermission() else { return }
-        let chooser = RecordChooserController { [weak self] choice, includeAudio in
+        let chooser = RecordChooserController { [weak self] choice, audioSource in
             guard let self else { return }
             self.recordChooser = nil
             guard let choice else { return }
-            self.handleRecordChoice(choice, includeAudio: includeAudio)
+            self.handleRecordChoice(choice, audioSource: audioSource)
         }
         recordChooser = chooser
         chooser.show()
     }
 
-    private func handleRecordChoice(_ choice: RecordChoice, includeAudio: Bool) {
+    private func handleRecordChoice(_ choice: RecordChoice, audioSource: AudioSource) {
         switch choice {
         case .display:
             guard let screen = screenUnderMouse() else { return }
@@ -381,7 +461,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let display = try CaptureEngine.shared.display(for: screen, in: content)
                     self.startRecording(
                         target: .display(display: display, name: screen.glintName),
-                        includeAudio: includeAudio
+                        audioSource: audioSource
                     )
                 } catch {
                     self.handleRecordError(error)
@@ -394,7 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.areaSelector = nil
                 guard let selection else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                    self.startAreaRecording(selection, includeAudio: includeAudio)
+                    self.startAreaRecording(selection, audioSource: audioSource)
                 }
             }
             areaSelector = selector
@@ -406,7 +486,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.windowPicker = nil
                 guard let window else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                    self.startRecording(target: .window(window: window), includeAudio: includeAudio)
+                    self.startRecording(target: .window(window: window), audioSource: audioSource)
                 }
             }
             windowPicker = picker
@@ -414,7 +494,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func startAreaRecording(_ selection: AreaSelectorController.Selection, includeAudio: Bool) {
+    private func startAreaRecording(_ selection: AreaSelectorController.Selection, audioSource: AudioSource) {
         Task { @MainActor in
             do {
                 let content = try await CaptureEngine.shared.loadContent()
@@ -434,7 +514,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         name: screen.glintName,
                         pointSize: local.size
                     ),
-                    includeAudio: includeAudio
+                    audioSource: audioSource
                 )
             } catch {
                 self.handleRecordError(error)
@@ -442,13 +522,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func startRecording(target: RecordingTarget, includeAudio: Bool) {
+    private func startRecording(target: RecordingTarget, audioSource: AudioSource) {
         guard recordingSession == nil, !startingRecording else { return }
         startingRecording = true
         updateStatusMenu()
 
         let hud = RecordingHUDController()
-        let recorder = ScreenRecorder(target: target, includeAudio: includeAudio)
+        let recorder = ScreenRecorder(target: target, audioSource: audioSource)
         recorder.onUnexpectedStop = { [weak self] error in
             guard let self, let session = self.recordingSession else { return }
             session.hud.setFailed()
@@ -462,6 +542,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let session = RecordingSession(recorder: recorder, hud: hud, targetLabel: target.label)
                 self.recordingSession = session
                 hud.onStop = { [weak self] in self?.stopRecording() }
+                hud.onPause = { [weak self] in self?.togglePauseRecording() }
                 hud.show(startedAt: recorder.startedAt ?? Date(), target: target.label)
                 self.playSound("begin_record.caf")
                 self.updateStatusMenu()
@@ -473,11 +554,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func togglePauseRecording() {
+        guard let session = recordingSession, !session.stopping, !startingRecording else { return }
+        if session.recorder.isPaused {
+            session.recorder.resume()
+            session.hud.setPaused(false)
+        } else {
+            session.recorder.pause()
+            session.hud.setPaused(true)
+        }
+        updateStatusMenu()
+    }
+
     private func stopRecording(interruptedBy error: Error? = nil) {
         guard let session = recordingSession, !session.stopping else { return }
         session.stopping = true
         session.hud.setSaving()
         updateStatusMenu()
+
+        // UI safety net if the writer never invokes its completion handler.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self, weak session] in
+            guard let self, let session, self.recordingSession === session else { return }
+            session.hud.setFailed()
+            session.hud.hide(after: 1.5)
+            self.recordingSession = nil
+            self.updateStatusMenu()
+            self.showError(title: "保存录屏失败", message: "保存过程超时，请检查磁盘空间后重试。")
+        }
 
         session.recorder.stop { [weak self] result in
             guard let self else { return }
@@ -584,8 +687,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showRecordChooser()
     }
 
+    @objc private func pauseRecordingAction() {
+        togglePauseRecording()
+    }
+
     @objc private func stopRecordingAction() {
         stopRecording()
+    }
+
+    @objc private func scrollScreenshotAction() {
+        beginScrollingCapture()
+    }
+
+    @objc private func openSettingsAction() {
+        showSettings()
     }
 
     @objc private func openImagesAction() {
@@ -616,6 +731,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let about = NSMenuItem(title: "关于 Glint", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(about)
+        let preferences = NSMenuItem(title: "设置…", action: #selector(openSettingsAction), keyEquivalent: ",")
+        preferences.keyEquivalentModifierMask = [.command]
+        preferences.target = self
+        appMenu.addItem(preferences)
         appMenu.addItem(.separator())
 
         let hide = NSMenuItem(title: "隐藏 Glint", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")

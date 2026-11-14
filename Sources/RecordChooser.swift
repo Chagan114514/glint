@@ -8,12 +8,12 @@ enum RecordChoice {
 
 final class RecordChooserController: NSObject, NSWindowDelegate {
     private let panel: RecordChooserPanel
-    private let onChoose: (RecordChoice?, Bool) -> Void
-    private let audioSwitch = NSSwitch()
+    private let onChoose: (RecordChoice?, AudioSource) -> Void
+    private let audioPopup = NSPopUpButton()
     private var keyMonitor: Any?
     private var finished = false
 
-    init(onChoose: @escaping (RecordChoice?, Bool) -> Void) {
+    init(onChoose: @escaping (RecordChoice?, AudioSource) -> Void) {
         self.onChoose = onChoose
         panel = RecordChooserPanel(
             contentRect: NSRect(x: 0, y: 0, width: 430, height: 412),
@@ -24,6 +24,7 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         super.init()
         configurePanel()
         buildUI()
+        panel.setContentSize(NSSize(width: 430, height: 412))
     }
 
     func show() {
@@ -60,6 +61,8 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.delegate = self
+        panel.contentMinSize = NSSize(width: 430, height: 412)
+        panel.contentMaxSize = NSSize(width: 430, height: 412)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -74,6 +77,8 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         root.layer?.masksToBounds = true
         root.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView = root
+        root.widthAnchor.constraint(equalToConstant: 430).isActive = true
+        root.heightAnchor.constraint(equalToConstant: 412).isActive = true
 
         let recDot = NSView()
         recDot.wantsLayer = true
@@ -126,17 +131,24 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         divider.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(divider)
 
-        let audioTitle = makeLabel("同时录制系统声音", size: 11.5, weight: .medium, color: Palette.text)
+        let audioTitle = makeLabel("声音来源", size: 11.5, weight: .medium, color: Palette.text)
         root.addSubview(audioTitle)
-        let audioDetail = makeLabel("应用播放的声音，不含麦克风", size: 9.5, weight: .regular, color: Palette.textTertiary)
+        let audioDetail = makeLabel("系统声音、麦克风，或两者同时录制", size: 9.5, weight: .regular, color: Palette.textTertiary)
         root.addSubview(audioDetail)
 
-        audioSwitch.state = Prefs.includeSystemAudio ? .on : .off
-        audioSwitch.controlSize = .small
-        audioSwitch.target = self
-        audioSwitch.action = #selector(audioChanged)
-        audioSwitch.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(audioSwitch)
+        audioPopup.removeAllItems()
+        for source in AudioSource.allCases {
+            audioPopup.addItem(withTitle: source.title)
+        }
+        if let index = AudioSource.allCases.firstIndex(of: Prefs.audioSource) {
+            audioPopup.selectItem(at: index)
+        }
+        audioPopup.controlSize = .small
+        audioPopup.font = NSFont.systemFont(ofSize: 10.5)
+        audioPopup.target = self
+        audioPopup.action = #selector(audioChanged)
+        audioPopup.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(audioPopup)
 
         let footer = makeLabel("开始后，按 ⌃⌥4 或点击悬浮条上的「停止」结束录制", size: 9.5, weight: .regular, color: Palette.textTertiary, alignment: .center)
         root.addSubview(footer)
@@ -177,8 +189,9 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
             audioDetail.leadingAnchor.constraint(equalTo: audioTitle.leadingAnchor),
             audioDetail.topAnchor.constraint(equalTo: audioTitle.bottomAnchor, constant: 2),
 
-            audioSwitch.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            audioSwitch.centerYAnchor.constraint(equalTo: audioTitle.centerYAnchor, constant: 7),
+            audioPopup.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            audioPopup.centerYAnchor.constraint(equalTo: audioTitle.centerYAnchor, constant: 7),
+            audioPopup.widthAnchor.constraint(equalToConstant: 190),
 
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
@@ -190,7 +203,7 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         guard !finished else { return }
         finished = true
         close()
-        let audio = Prefs.includeSystemAudio
+        let audio = Prefs.audioSource
         let callback = onChoose
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
             callback(choice, audio)
@@ -209,11 +222,13 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         guard !finished else { return }
         finished = true
         close()
-        onChoose(nil, Prefs.includeSystemAudio)
+        onChoose(nil, Prefs.audioSource)
     }
 
     @objc private func audioChanged() {
-        Prefs.includeSystemAudio = audioSwitch.state == .on
+        let index = audioPopup.indexOfSelectedItem
+        guard index >= 0, index < AudioSource.allCases.count else { return }
+        Prefs.audioSource = AudioSource.allCases[index]
     }
 
     @objc private func closeTapped() {
