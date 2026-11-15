@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import ImageIO
 
 enum AnnotationTool: Int, CaseIterable {
@@ -337,55 +338,26 @@ final class AnnotationCanvasView: NSView {
     private func applyMosaic(_ normalizedRect: CGRect) {
         let width = image.width
         let height = image.height
-        guard width > 0, height > 0,
-              let context = CGContext(
-                data: nil,
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bytesPerRow: 0,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-              ) else { return }
-        context.interpolationQuality = .none
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard width > 0, height > 0 else { return }
 
         let pixelRect = CGRect(
             x: floor(normalizedRect.minX * CGFloat(width)),
-            y: floor((1 - normalizedRect.maxY) * CGFloat(height)),
+            y: floor(normalizedRect.minY * CGFloat(height)),
             width: max(2, floor(normalizedRect.width * CGFloat(width))),
             height: max(2, floor(normalizedRect.height * CGFloat(height)))
         ).integral
-        guard pixelRect.width >= 2, pixelRect.height >= 2,
-              let source = image.cropping(to: pixelRect) else { return }
+        guard pixelRect.width >= 2, pixelRect.height >= 2 else { return }
 
-        let block = max(8, min(18, Int(pixelRect.width / 18)))
-        let smallWidth = max(1, Int(pixelRect.width) / block)
-        let smallHeight = max(1, Int(pixelRect.height) / block)
-        guard let smallContext = CGContext(
-            data: nil,
-            width: smallWidth,
-            height: smallHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return }
-        smallContext.interpolationQuality = .none
-        smallContext.draw(source, in: CGRect(x: 0, y: 0, width: smallWidth, height: smallHeight))
-        guard let smallImage = smallContext.makeImage() else { return }
+        let source = CIImage(cgImage: image)
+        let block = max(8, min(24, Int(pixelRect.width / 18)))
+        guard let filter = CIFilter(name: "CIPixellate") else { return }
+        filter.setValue(source.cropped(to: pixelRect), forKey: kCIInputImageKey)
+        filter.setValue(block, forKey: kCIInputScaleKey)
+        guard let pixelated = filter.outputImage?.cropped(to: pixelRect) else { return }
 
-        // CGImage.cropping uses top-left coordinates, while CGContext draws
-        // from the bottom-left. Convert the selected vertical band back.
-        let drawRect = CGRect(
-            x: pixelRect.minX,
-            y: normalizedRect.minY * CGFloat(height),
-            width: pixelRect.width,
-            height: pixelRect.height
-        )
-        context.interpolationQuality = .none
-        context.draw(smallImage, in: drawRect)
-        guard let output = context.makeImage() else { return }
+        let composite = pixelated.composited(over: source)
+        let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+        guard let output = ciContext.createCGImage(composite, from: source.extent) else { return }
         pushSnapshot()
         image = output
         onStatusChanged?("已添加马赛克")

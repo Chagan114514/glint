@@ -17,13 +17,13 @@
       assets: [
         {
           name: "Glint-1.2.0.dmg",
-          size: 1196406,
+          size: 1197671,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.2.0/Glint-1.2.0.dmg`,
           download_count: 0
         },
         {
           name: "Glint-1.2.0.zip",
-          size: 687701,
+          size: 688278,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.2.0/Glint-1.2.0.zip`,
           download_count: 0
         }
