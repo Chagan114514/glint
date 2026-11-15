@@ -115,6 +115,70 @@ final class UpdateChecker {
     // MARK: - Networking
 
     private func request(completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
+        requestServer { [weak self] result in
+            switch result {
+            case .success:
+                completion(result)
+            case .failure(let error):
+                self?.requestGitHub { info in
+                    if let info {
+                        completion(.success(info))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }
+    }
+
+    /// The version endpoint is authoritative. If it is temporarily unavailable,
+    /// follow GitHub's public release redirect instead of the rate-limited API.
+    private func requestGitHub(completion: @escaping (UpdateInfo?) -> Void) {
+        guard let url = URL(string: "https://github.com/Chagan114514/glint/releases/latest") else {
+            completion(nil)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        request.setValue("text/html", forHTTPHeaderField: "Accept")
+        request.setValue("Glint/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let http = response as? HTTPURLResponse
+            let finalURL = response?.url
+            if ProcessInfo.processInfo.environment["GLINT_UPDATE_DEBUG"] == "1" {
+                let text = "[UpdateFallback] status=\(http?.statusCode ?? -1) url=\(finalURL?.absoluteString ?? "nil") bytes=\(data?.count ?? 0) error=\(error?.localizedDescription ?? "none")\n"
+                FileHandle.standardError.write(text.data(using: .utf8)!)
+            }
+            guard error == nil,
+                  let http,
+                  (200..<300).contains(http.statusCode),
+                  let finalURL,
+                  let version = Self.versionFromReleaseURL(finalURL) else {
+                completion(nil)
+                return
+            }
+            let downloadURL = URL(string: "https://github.com/Chagan114514/glint/releases/download/v\(version)/Glint-\(version).dmg")
+            completion(UpdateInfo(
+                version: version,
+                releaseURL: finalURL,
+                downloadURL: downloadURL,
+                patchURL: nil,
+                notes: nil,
+                isMajor: false,
+                fileCount: 0
+            ))
+        }.resume()
+    }
+
+    private static func versionFromReleaseURL(_ url: URL) -> String? {
+        guard url.path.contains("/releases/tag/") else { return nil }
+        var version = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if version.lowercased().hasPrefix("v") { version.removeFirst() }
+        guard !version.isEmpty, version.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil else { return nil }
+        return version
+    }
+
+    private func requestServer(completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
         var request = URLRequest(url: Self.endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 10

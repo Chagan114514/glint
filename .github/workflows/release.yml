@@ -34,4 +34,5 @@ jobs:
           files: |
             Glint-*.dmg
             Glint-*.zip
+          overwrite_files: true
           generate_release_notes: false
