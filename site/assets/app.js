@@ -521,6 +521,8 @@
       if (tag === "v1.1.2") return "Glint 1.1.2 — Update Endpoint";
       if (tag === "1.0") return "Glint 1.0";
     }
+    if (tag === "v1.1.2") return "Glint 1.1.2 — 更新检查";
+    if (tag === "v1.1.1") return "Glint 1.1.1 — 批注、OCR、滚动截图与麦克风";
     return release.name || `Glint ${release.tag_name || ""}`;
   }
 
