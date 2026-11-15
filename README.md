@@ -15,9 +15,7 @@
 - 支持中文 / English 切换；
 - 进入下载页会提示 GitHub 海外下载速度问题，建议使用代理。
 
-网站源码位于 [`site/`](site/)，纯 HTML / CSS / JavaScript，无第三方运行时依赖。
-
-> 首次上线需要在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**，然后重新运行 **Deploy website** workflow。
+网站源码位于 [`site/`](site/)，纯 HTML / CSS / JavaScript，无第三方运行时依赖，通过 GitHub Actions 自动部署到 GitHub Pages。
 
 ## 功能
 
