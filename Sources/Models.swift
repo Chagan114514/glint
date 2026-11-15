@@ -1,7 +1,9 @@
 import AppKit
 import AVFoundation
 import ImageIO
+#if !GLINT_COMPAT
 import ScreenCaptureKit
+#endif
 import UniformTypeIdentifiers
 
 // MARK: - Capture models
@@ -499,8 +501,10 @@ extension NSScreen {
     }
 }
 
+#if !GLINT_COMPAT
 extension SCDisplay {
     var pointSize: CGSize {
         CGSize(width: width, height: height)
     }
 }
+#endif

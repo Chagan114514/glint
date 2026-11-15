@@ -1,5 +1,7 @@
 import AppKit
+#if !GLINT_COMPAT
 import ScreenCaptureKit
+#endif
 
 final class WindowPickerController: NSObject, NSWindowDelegate {
     enum Purpose {

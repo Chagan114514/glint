@@ -1,7 +1,7 @@
 # dmgbuild settings for Glint
 # Usage: ./make-dmg.sh
 import os
-app = "Glint.app"
+app = os.environ.get("GLINT_APP_PATH", "Glint.app")
 
 files = [app]
 symlinks = {"Applications": "/Applications"}

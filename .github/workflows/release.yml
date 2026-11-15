@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   release:
+    if: ${{ !endsWith(github.ref_name, '-macos11') }}
     runs-on: macos-latest
     steps:
       - name: Checkout

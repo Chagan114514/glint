@@ -202,6 +202,23 @@ open "glint://settings"    # 打开设置
 open "glint://permission"  # 请求屏幕权限
 ```
 
+## macOS 11 兼容版
+
+主版本使用 ScreenCaptureKit，最低要求 macOS 14。为了让旧系统用户也能尝鲜，另有一个独立兼容版：
+
+- 最低支持 **macOS 11.0**，Universal Binary（arm64 + x86_64）
+- 使用 CoreGraphics 抓取，不依赖 ScreenCaptureKit
+- 支持截图、多显示器、滚动截图、OCR、批注（裁剪/马赛克/拖拽）、自定义快捷键、下载器、更新检查
+- 录屏只录制画面，**不包含系统声音和麦克风声音**
+- 独立 Bundle ID `local.glint.capture.compat`，需要单独授予屏幕录制权限
+
+从 [GitHub Releases](https://github.com/Chagan114514/glint/releases) 的 `v1.2.0-macos11` 标签下载 `Glint-1.2.0-macOS11.dmg`，或从源码构建：
+
+```bash
+./build-compat.sh
+./make-dmg-compat.sh
+```
+
 ## 编译
 
 只依赖 macOS Command Line Tools（无需完整 Xcode 工程）：
@@ -236,7 +253,9 @@ open Glint.app
 | `Sources/AreaSelector.swift` | 全屏覆盖的区域框选层、尺寸标注、暗色遮罩 |
 | `Sources/WindowPicker.swift` | 窗口缩略图选择面板 |
 | `Sources/CaptureEngine.swift` | ScreenCaptureKit 截图、窗口枚举与缩略图 |
-| `Sources/Recorder.swift` | SCStream + AVAssetWriter 录屏、系统音频、文件封装 |
+| `Sources/Recorder.swift` | SCStream + AVAssetWriter 录屏、系统音频、文件封装（主版本） |
+| `Sources/CaptureEngineCompat.swift` | CoreGraphics 截图 / 窗口枚举（macOS 11 兼容版） |
+| `Sources/RecorderCompat.swift` | CoreGraphics 定时抓帧 + AVAssetWriter 视频录制（兼容版） |
 | `Sources/RecordingHUD.swift` | 录制悬浮控制条与计时 |
 | `Sources/ResultPanel.swift` | 图片/视频结果面板、复制与导出、OCR/批注入口 |
 | `Sources/SettingsWindow.swift` | 保存目录、声音来源、麦克风设备设置 |
@@ -270,9 +289,10 @@ open Glint.app
 - OCR 目前固定识别简体中文 + 英文，复杂排版可能需要手动整理。
 - 麦克风录制需要 macOS 15+；系统声音 + 麦克风会保存为两条音轨，部分播放器可能需要手动选择音轨。
 - 部分受 DRM 保护的 App 声音可能被系统屏蔽。
-- 批注始终保存为副本，不会覆盖原图；暂不包含马赛克、裁剪和旋转。
+- 批注始终保存为副本，不会覆盖原图；已支持裁剪和马赛克。
 - App 为本地 ad-hoc 签名，未做 notarization。若从其他 Mac 拷贝，首次打开可能需要右键 →「打开」。
 - 屏幕录制权限变化后，个别 macOS 版本需要重启 Glint 才能生效。
+- macOS 11 兼容版录屏无声音，且定时抓帧的 CPU 占用高于主版本。
 
 ## 隐私
 

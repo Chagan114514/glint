@@ -1,5 +1,7 @@
 import AppKit
+#if !GLINT_COMPAT
 import ScreenCaptureKit
+#endif
 
 private final class RecordingSession {
     let recorder: ScreenRecorder
@@ -272,9 +274,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         if recordingSession != nil || startingRecording {
             let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-                .applying(.init(paletteColors: [Palette.danger]))
-            let image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "正在录制")?
-                .withSymbolConfiguration(config)
+            let image: NSImage?
+            if #available(macOS 12.0, *) {
+                image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "正在录制")?
+                    .withSymbolConfiguration(config.applying(.init(paletteColors: [Palette.danger])))
+            } else {
+                image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "正在录制")?
+                    .withSymbolConfiguration(config)
+            }
             image?.isTemplate = false
             button.image = image
             button.toolTip = recordingSession?.recorder.isPaused == true ? "Glint 已暂停录制" : "Glint 正在录制"

@@ -1,3 +1,4 @@
+#if !GLINT_COMPAT
 import AppKit
 import AVFoundation
 import ScreenCaptureKit
@@ -569,3 +570,5 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 }
+
+#endif

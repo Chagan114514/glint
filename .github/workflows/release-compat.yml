@@ -1,0 +1,38 @@
+name: Release macOS 11 Compatibility
+
+on:
+  push:
+    tags:
+      - 'v*-macos11'
+
+permissions:
+  contents: write
+
+jobs:
+  release-compat:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build compatibility app (universal macOS 11+)
+        run: ./build-compat.sh
+
+      - name: Package ZIP
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' .build/compat/Glint.app/Contents/Info.plist)
+          ditto -c -k --norsrc --noextattr --keepParent .build/compat/Glint.app "Glint-${VERSION}-macOS11.zip"
+
+      - name: Build DMG
+        run: ./make-dmg-compat.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Glint ${{ github.ref_name }} · macOS 11 兼容版
+          body_path: RELEASE_NOTES_v1.2.0-macos11.md
+          files: |
+            Glint-*-macOS11.dmg
+            Glint-*-macOS11.zip
+          overwrite_files: true
+          generate_release_notes: false

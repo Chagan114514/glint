@@ -255,7 +255,12 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         let left = makeLabel("支持自定义截图 / 录屏保存目录 · 全部数据仅保留在本机", size: 9.5, weight: .regular, color: Palette.textTertiary)
         view.addSubview(left)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? UpdateChecker.currentVersion
-        let right = makeLabel("Glint \(version)", size: 9.5, weight: .medium, color: Palette.textTertiary)
+        #if GLINT_COMPAT
+        let versionSuffix = " · 兼容版"
+        #else
+        let versionSuffix = ""
+        #endif
+        let right = makeLabel("Glint \(version)\(versionSuffix)", size: 9.5, weight: .medium, color: Palette.textTertiary)
         view.addSubview(right)
         NSLayoutConstraint.activate([
             left.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -390,7 +395,14 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 private final class DashboardHeaderView: NSView {
     private let logo = LogoView()
     private let title = NSTextField(labelWithString: "Glint")
-    private let subtitle = NSTextField(labelWithString: "截屏 · 录屏 · 一气呵成")
+    private let subtitle: NSTextField = {
+        #if GLINT_COMPAT
+        let text = "截屏 · 录屏 · macOS 11 兼容版"
+        #else
+        let text = "截屏 · 录屏 · 一气呵成"
+        #endif
+        return NSTextField(labelWithString: text)
+    }()
     private let permissionPill = PermissionPill()
     private let shortcutBadge = ShortcutBadge()
     private let settingsButton = GlintIconButton(symbol: "gearshape", size: 13)

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>zh_CN</string>
+    <key>CFBundleExecutable</key>
+    <string>Glint</string>
+    <key>CFBundleIconFile</key>
+    <string>Glint</string>
+    <key>CFBundleIdentifier</key>
+    <string>local.glint.capture.compat</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Glint</string>
+    <key>CFBundleDisplayName</key>
+    <string>Glint 兼容版</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.2.0</string>
+    <key>CFBundleVersion</key>
+    <string>7</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSApplicationSupportsSecureRestorableState</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Glint · 本地截屏与录屏工具</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Glint 在你选择麦克风作为录制声音来源时，需要访问麦克风。</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Glint 需要捕获屏幕内容，用于截图和录屏。所有内容只保存在本机。</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>local.glint.capture</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>glint</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

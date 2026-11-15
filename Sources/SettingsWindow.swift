@@ -103,7 +103,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
         root.addSubview(videoRow)
 
+        #if GLINT_COMPAT
+        let audioTitle = makeLabel("录制与声音 · 兼容版仅录制画面", size: 12, weight: .semibold, color: Palette.text.withAlphaComponent(0.86))
+        #else
         let audioTitle = makeLabel("录制与声音", size: 12, weight: .semibold, color: Palette.text.withAlphaComponent(0.86))
+        #endif
         root.addSubview(audioTitle)
 
         let audioCard = GlintCardView()
@@ -315,11 +319,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             audioPopup.selectItem(at: index)
         }
 
-        devices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.microphone],
-            mediaType: .audio,
-            position: .unspecified
-        ).devices
+        if #available(macOS 14.0, *) {
+            devices = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.microphone],
+                mediaType: .audio,
+                position: .unspecified
+            ).devices
+        } else {
+            devices = []
+        }
 
         micPopup.removeAllItems()
         micPopup.addItem(withTitle: "系统默认")

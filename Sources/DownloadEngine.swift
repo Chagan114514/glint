@@ -164,7 +164,7 @@ final class MultiThreadDownloader {
                             group.addTask {
                                 let part = workDirectory.appendingPathComponent("part-\(index)")
                                 let request = Self.rangeRequest(url: url, range: range)
-                                let (temp, response) = try await session.download(for: request)
+                                let (temp, response) = try await self.downloadFile(request: request, session: session, to: part)
                                 guard let http = response as? HTTPURLResponse else { throw DownloadError.noResponse }
                                 guard http.statusCode == 206 else { throw DownloadError.http(http.statusCode) }
                                 try? FileManager.default.removeItem(at: part)
@@ -270,9 +270,38 @@ final class MultiThreadDownloader {
         return Probe(length: length, supportsRanges: supportsRanges, filename: filename)
     }
 
+    /// macOS 11 compatible file-download bridge; URLSession's async
+    /// download(for:) is only available on macOS 12+.
+    private func downloadFile(
+        request: URLRequest,
+        session: URLSession,
+        to destination: URL
+    ) async throws -> (URL, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            let task = session.downloadTask(with: request) { temp, response, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let temp, let response else {
+                    continuation.resume(throwing: DownloadError.noResponse)
+                    return
+                }
+                do {
+                    try? FileManager.default.removeItem(at: destination)
+                    try FileManager.default.moveItem(at: temp, to: destination)
+                    continuation.resume(returning: (destination, response))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            task.resume()
+        }
+    }
+
     private func singleDownload(url: URL, workDirectory: URL, session: URLSession) async throws -> URL {
         let part = workDirectory.appendingPathComponent("part-single")
-        let (temp, response) = try await session.download(for: URLRequest(url: url))
+        let (temp, response) = try await downloadFile(request: URLRequest(url: url), session: session, to: part)
         guard let http = response as? HTTPURLResponse else { throw DownloadError.noResponse }
         guard (200..<300).contains(http.statusCode) else { throw DownloadError.http(http.statusCode) }
         try? FileManager.default.removeItem(at: part)

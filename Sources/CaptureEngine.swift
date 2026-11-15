@@ -1,3 +1,4 @@
+#if !GLINT_COMPAT
 import AppKit
 import ScreenCaptureKit
 
@@ -161,3 +162,5 @@ final class CaptureEngine {
         return SCContentFilter(display: display, excludingApplications: selfApps, exceptingWindows: [])
     }
 }
+
+#endif
