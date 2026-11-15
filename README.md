@@ -6,6 +6,17 @@
 
 ![Glint 主界面](preview.png)
 
+## 官网
+
+访问 **[chagan114514.github.io/glint](https://chagan114514.github.io/glint/)**：
+
+- 自动读取 GitHub Releases，展示最新版本和历史版本；
+- 每个版本提供 DMG / ZIP 直接下载；
+- 支持中文 / English 切换；
+- 进入下载页会提示 GitHub 海外下载速度问题，建议使用代理。
+
+网站源码位于 [`site/`](site/)，纯 HTML / CSS / JavaScript，无第三方运行时依赖。
+
 ## 功能
 
 - **区域截图**：拖拽框选，实时显示像素尺寸，松开即截。
@@ -222,6 +233,8 @@ open Glint.app
 | `Sources/Theme.swift` | 颜色、字体、按钮和自绘组件 |
 | `dmg_settings.py` | DMG 窗口尺寸、背景、图标位置与卷宗设置 |
 | `make-dmg.sh` | 生成带品牌背景的 `Glint-1.1.dmg` |
+| `site/` | 官网：中英文切换、GitHub Releases 自动同步、下载页速度提示 |
+| `.github/workflows/pages.yml` | GitHub Pages 自动部署 |
 
 技术要点：
 

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://chagan114514.github.io/glint/sitemap.xml
