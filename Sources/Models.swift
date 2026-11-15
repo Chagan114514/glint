@@ -124,6 +124,52 @@ enum Prefs {
             }
         }
     }
+
+    private static let updateCheckKey = "GlintCheckUpdates"
+    private static let skippedUpdateKey = "GlintSkippedUpdateVersion"
+    private static let storedVersionKey = "GlintStoredVersion"
+    private static let lastUpdateCheckKey = "GlintLastUpdateCheck"
+
+    static var updateCheckEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: updateCheckKey) == nil { return true }
+            return UserDefaults.standard.bool(forKey: updateCheckKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: updateCheckKey) }
+    }
+
+    static var skippedUpdateVersion: String? {
+        get { UserDefaults.standard.string(forKey: skippedUpdateKey) }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: skippedUpdateKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: skippedUpdateKey)
+            }
+        }
+    }
+
+    static var storedVersion: String? {
+        get { UserDefaults.standard.string(forKey: storedVersionKey) }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: storedVersionKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: storedVersionKey)
+            }
+        }
+    }
+
+    static var lastUpdateCheck: Date? {
+        get { UserDefaults.standard.object(forKey: lastUpdateCheckKey) as? Date }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: lastUpdateCheckKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: lastUpdateCheckKey)
+            }
+        }
+    }
 }
 
 enum AudioSource: String, CaseIterable {

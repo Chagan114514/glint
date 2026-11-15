@@ -8,23 +8,23 @@
 
   const FALLBACK_RELEASES = [
     {
-      tag_name: "v1.1.0",
-      name: "Glint 1.1.0 — 批注、OCR、滚动截图与麦克风",
+      tag_name: "v1.1.1",
+      name: "Glint 1.1.1 — 批注、OCR、滚动截图与麦克风",
       published_at: "2026-11-15T00:09:53Z",
-      html_url: `https://github.com/${REPO}/releases/tag/v1.1.0`,
+      html_url: `https://github.com/${REPO}/releases/tag/v1.1.1`,
       prerelease: false,
       draft: false,
       assets: [
         {
-          name: "Glint-1.1.dmg",
+          name: "Glint-1.1.1.dmg",
           size: 1058163,
-          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.0/Glint-1.1.dmg`,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.dmg`,
           download_count: 1
         },
         {
-          name: "Glint-1.1.zip",
+          name: "Glint-1.1.1.zip",
           size: 4825807,
-          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.0/Glint-1.1.zip`,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.zip`,
           download_count: 1
         }
       ]
@@ -126,7 +126,7 @@
       "news.kicker": "LATEST RELEASE",
       "news.title": "1.1 makes screenshots more useful.",
       "news.date": "November 2026",
-      "news.download": "Get 1.1.0",
+      "news.download": "Get 1.1.1",
       "news.item1.title": "Annotation after saving",
       "news.item1.desc": "Pen, arrows, shapes and text — saved as a copy.",
       "news.item2.title": "OCR",
@@ -149,7 +149,7 @@
       "faq.q1": "Is Glint really free?",
       "faq.a1": "Yes. MIT licensed, with no subscription, ads or feature gates. The source is on GitHub.",
       "faq.q2": "Are my screenshots uploaded?",
-      "faq.a2": "No. Screenshots, recording, OCR, annotation and export all happen on your Mac. The app makes no network requests.",
+      "faq.a2": "No. Screenshots, recording, OCR, annotation and export stay on your Mac. The only network request is the optional update check, which sends the app version — never screen content — and can be disabled in Settings.",
       "faq.q3": "Why does it need screen recording permission?",
       "faq.a3": "macOS requires all screenshot and recording apps to have Screen & System Audio Recording permission. Glint does not request Accessibility or Input Monitoring.",
       "faq.q4": "Does it support Intel Macs?",
@@ -172,7 +172,7 @@
       "dl.releaseNotes": "Release notes →",
       "dl.installTitle": "Install in three steps",
       "dl.step1.title": "Open the DMG",
-      "dl.step1.desc": "Download and open Glint-1.1.dmg.",
+      "dl.step1.desc": "Download and open Glint-1.1.1.dmg.",
       "dl.step2.title": "Drop into Applications",
       "dl.step2.desc": "Drag Glint into Applications, then eject the disk image.",
       "dl.step3.title": "Allow and begin",
@@ -274,7 +274,7 @@
       "news.kicker": "最新版本",
       "news.title": "1.1 让截图更有用。",
       "news.date": "2026 年 11 月",
-      "news.download": "获取 1.1.0",
+      "news.download": "获取 1.1.1",
       "news.item1.title": "保存后批注",
       "news.item1.desc": "画笔、箭头、形状与文字，保存为副本。",
       "news.item2.title": "OCR 文字识别",
@@ -297,7 +297,7 @@
       "faq.q1": "Glint 真的免费吗？",
       "faq.a1": "是的，MIT 开源，没有订阅、广告或功能限制。你可以在 GitHub 上查看源码。",
       "faq.q2": "我的截图会上传吗？",
-      "faq.a2": "不会。截图、录屏、OCR、批注和导出全部在本机完成；应用没有网络请求。",
+      "faq.a2": "不会。截图、录屏、OCR、批注和导出都在本机完成；唯一的网络请求是可关闭的版本检查，只发送版本号，不包含画面内容。",
       "faq.q3": "为什么需要屏幕录制权限？",
       "faq.a3": "macOS 要求所有截屏/录屏应用获得“屏幕与系统音频录制”权限。Glint 不申请辅助功能或输入监控权限。",
       "faq.q4": "支持 Intel Mac 吗？",
@@ -320,7 +320,7 @@
       "dl.releaseNotes": "更新说明 →",
       "dl.installTitle": "安装只需要三步",
       "dl.step1.title": "打开 DMG",
-      "dl.step1.desc": "下载并打开 Glint-1.1.dmg。",
+      "dl.step1.desc": "下载并打开 Glint-1.1.1.dmg。",
       "dl.step2.title": "拖进 Applications",
       "dl.step2.desc": "把 Glint 拖到 Applications 文件夹，然后推出磁盘映像。",
       "dl.step3.title": "授权并开始",
@@ -496,7 +496,7 @@
   function releaseTitle(release) {
     const tag = String(release.tag_name || "").toLowerCase();
     if (lang === "en") {
-      if (tag === "v1.1.0") return "Glint 1.1.0 — Annotation, OCR, Scrolling Capture & Microphone";
+      if (tag === "v1.1.1") return "Glint 1.1.1 — Annotation, OCR, Scrolling Capture & Microphone";
       if (tag === "1.0") return "Glint 1.0";
     }
     return release.name || `Glint ${release.tag_name || ""}`;

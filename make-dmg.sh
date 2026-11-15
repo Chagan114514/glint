@@ -5,7 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="Glint.app"
-DMG="Glint-1.1.dmg"
+VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
+DMG="Glint-${VERSION}.dmg"
 PYTHON="${PYTHON:-python3}"
 TOOLS=".build/dmg-tools"
 
@@ -22,6 +23,6 @@ fi
 
 rm -f "$DMG"
 echo "==> 生成 $DMG"
-PYTHONPATH="$TOOLS" "$PYTHON" -m dmgbuild -s dmg_settings.py "Glint 1.0" "$DMG"
+GLINT_DMG_VOLUME="Glint ${VERSION}" PYTHONPATH="$TOOLS" "$PYTHON" -m dmgbuild -s dmg_settings.py "Glint ${VERSION}" "$DMG"
 
 echo "完成: $PWD/$DMG"

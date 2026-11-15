@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Glint
+        run: ./build.sh
+
+      - name: Package ZIP
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Glint.app/Contents/Info.plist)
+          ditto -c -k --norsrc --noextattr --keepParent Glint.app "Glint-${VERSION}.zip"
+
+      - name: Build DMG
+        run: ./make-dmg.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Glint ${{ github.ref_name }}
+          body_path: RELEASE_NOTES_v1.1.1.md
+          files: |
+            Glint-*.dmg
+            Glint-*.zip
+          generate_release_notes: false

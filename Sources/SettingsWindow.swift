@@ -8,6 +8,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let audioPopup = NSPopUpButton()
     private let micPopup = NSPopUpButton()
     private let micNote = NSTextField(labelWithString: "")
+    private let updateSwitch = NSSwitch()
+    private let updateStatus = NSTextField(labelWithString: "")
+    private let checkUpdateButton = GlintButton(title: "检查更新", style: .secondary)
     private let onClose: (() -> Void)?
     private var devices: [AVCaptureDevice] = []
     private var closed = false
@@ -15,7 +18,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     init(onClose: (() -> Void)? = nil) {
         self.onClose = onClose
         panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 590),
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 700),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -52,12 +55,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         panel.isReleasedWhenClosed = false
         panel.appearance = NSAppearance(named: .darkAqua)
         panel.delegate = self
-        panel.contentMinSize = NSSize(width: 620, height: 590)
-        panel.contentMaxSize = NSSize(width: 620, height: 590)
+        panel.contentMinSize = NSSize(width: 620, height: 700)
+        panel.contentMaxSize = NSSize(width: 620, height: 700)
     }
 
     private func buildUI() {
-        let root = SettingsSurface(frame: NSRect(x: 0, y: 0, width: 620, height: 590))
+        let root = SettingsSurface(frame: NSRect(x: 0, y: 0, width: 620, height: 700))
         root.wantsLayer = true
         root.layer?.cornerRadius = 20
         root.layer?.cornerCurve = .continuous
@@ -65,13 +68,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         root.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView = root
         root.widthAnchor.constraint(equalToConstant: 620).isActive = true
-        root.heightAnchor.constraint(equalToConstant: 590).isActive = true
+        root.heightAnchor.constraint(equalToConstant: 700).isActive = true
 
         let icon = makeSymbol("gearshape.fill", size: 15, weight: .semibold, color: Palette.accent)
         root.addSubview(icon)
         let title = makeLabel("设置", size: 20, weight: .semibold, color: Palette.text)
         root.addSubview(title)
-        let subtitle = makeLabel("保存位置、声音与识别选项", size: 10.5, weight: .regular, color: Palette.textSecondary)
+        let subtitle = makeLabel("保存位置、声音、识别与更新", size: 10.5, weight: .regular, color: Palette.textSecondary)
         root.addSubview(subtitle)
         let close = GlintIconButton(symbol: "xmark", size: 12, target: self, action: #selector(closeTapped))
         root.addSubview(close)
@@ -147,6 +150,36 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         ocrBadge.layer?.cornerRadius = 6
         ocrBadge.layer?.masksToBounds = true
         ocrCard.addSubview(ocrBadge)
+
+        let updateTitle = makeLabel("软件更新", size: 12, weight: .semibold, color: Palette.text.withAlphaComponent(0.86))
+        root.addSubview(updateTitle)
+        let updateCard = GlintCardView()
+        updateCard.fillColor = Palette.surface
+        updateCard.borderColor = Palette.stroke
+        updateCard.cornerRadius = 14
+        root.addSubview(updateCard)
+        let updateIcon = makeSymbol("arrow.triangle.2.circlepath", size: 16, weight: .regular, color: Palette.accent)
+        updateCard.addSubview(updateIcon)
+        let autoLabel = makeLabel("启动时检查更新", size: 11.5, weight: .medium, color: Palette.text)
+        updateCard.addSubview(autoLabel)
+        let autoDetail = makeLabel("发现新版本时会提示你前往 GitHub。", size: 9.5, weight: .regular, color: Palette.textTertiary)
+        updateCard.addSubview(autoDetail)
+
+        updateSwitch.translatesAutoresizingMaskIntoConstraints = false
+        updateSwitch.controlSize = .small
+        updateSwitch.target = self
+        updateSwitch.action = #selector(updateSwitchChanged)
+        updateCard.addSubview(updateSwitch)
+
+        updateStatus.font = NSFont.systemFont(ofSize: 9.5, weight: .regular)
+        updateStatus.textColor = Palette.textTertiary
+        updateStatus.lineBreakMode = .byTruncatingTail
+        updateStatus.translatesAutoresizingMaskIntoConstraints = false
+        updateCard.addSubview(updateStatus)
+
+        checkUpdateButton.target = self
+        checkUpdateButton.action = #selector(checkUpdateTapped)
+        updateCard.addSubview(checkUpdateButton)
 
         let footer = makeLabel("修改立即生效，只影响之后生成的文件。", size: 9.5, weight: .regular, color: Palette.textTertiary, alignment: .center)
         root.addSubview(footer)
@@ -225,6 +258,34 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             ocrBadge.widthAnchor.constraint(equalToConstant: 38),
             ocrBadge.heightAnchor.constraint(equalToConstant: 20),
 
+            updateTitle.leadingAnchor.constraint(equalTo: filesTitle.leadingAnchor),
+            updateTitle.topAnchor.constraint(equalTo: ocrCard.bottomAnchor, constant: 18),
+
+            updateCard.leadingAnchor.constraint(equalTo: imageRow.leadingAnchor),
+            updateCard.trailingAnchor.constraint(equalTo: imageRow.trailingAnchor),
+            updateCard.topAnchor.constraint(equalTo: updateTitle.bottomAnchor, constant: 8),
+            updateCard.heightAnchor.constraint(equalToConstant: 96),
+
+            updateIcon.leadingAnchor.constraint(equalTo: updateCard.leadingAnchor, constant: 16),
+            updateIcon.topAnchor.constraint(equalTo: updateCard.topAnchor, constant: 15),
+            updateIcon.widthAnchor.constraint(equalToConstant: 18),
+            updateIcon.heightAnchor.constraint(equalToConstant: 18),
+            autoLabel.leadingAnchor.constraint(equalTo: updateIcon.trailingAnchor, constant: 10),
+            autoLabel.topAnchor.constraint(equalTo: updateCard.topAnchor, constant: 13),
+            autoDetail.leadingAnchor.constraint(equalTo: autoLabel.leadingAnchor),
+            autoDetail.topAnchor.constraint(equalTo: autoLabel.bottomAnchor, constant: 2),
+            autoDetail.trailingAnchor.constraint(lessThanOrEqualTo: updateSwitch.leadingAnchor, constant: -10),
+            updateSwitch.trailingAnchor.constraint(equalTo: updateCard.trailingAnchor, constant: -16),
+            updateSwitch.topAnchor.constraint(equalTo: updateCard.topAnchor, constant: 13),
+
+            updateStatus.leadingAnchor.constraint(equalTo: updateCard.leadingAnchor, constant: 16),
+            updateStatus.trailingAnchor.constraint(lessThanOrEqualTo: checkUpdateButton.leadingAnchor, constant: -10),
+            updateStatus.bottomAnchor.constraint(equalTo: updateCard.bottomAnchor, constant: -16),
+            checkUpdateButton.trailingAnchor.constraint(equalTo: updateCard.trailingAnchor, constant: -14),
+            checkUpdateButton.bottomAnchor.constraint(equalTo: updateCard.bottomAnchor, constant: -13),
+            checkUpdateButton.widthAnchor.constraint(equalToConstant: 84),
+            checkUpdateButton.heightAnchor.constraint(equalToConstant: 28),
+
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
@@ -262,6 +323,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             micPopup.selectItem(at: 0)
         }
         updateMicState()
+
+        updateSwitch.state = Prefs.updateCheckEnabled ? .on : .off
+        updateStatus.stringValue = Prefs.updateCheckEnabled
+            ? "当前版本 v\(UpdateChecker.currentVersion)"
+            : "已关闭自动检查，仍可手动检查"
     }
 
     private func updateMicState() {
@@ -344,6 +410,33 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             Prefs.microphoneDeviceID = nil
         } else if index - 1 < devices.count {
             Prefs.microphoneDeviceID = devices[index - 1].uniqueID
+        }
+    }
+
+    @objc private func updateSwitchChanged() {
+        let enabled = updateSwitch.state == .on
+        Prefs.updateCheckEnabled = enabled
+        updateStatus.stringValue = enabled
+            ? "启动时会自动检查更新"
+            : "已关闭自动检查，仍可手动检查"
+    }
+
+    @objc private func checkUpdateTapped() {
+        checkUpdateButton.isEnabled = false
+        updateStatus.stringValue = "正在检查更新…"
+        UpdateChecker.shared.checkManually(presenting: panel) { [weak self] result in
+            guard let self else { return }
+            self.checkUpdateButton.isEnabled = true
+            switch result {
+            case .upToDate:
+                self.updateStatus.stringValue = "已是最新版本"
+            case .available(let info):
+                self.updateStatus.stringValue = "发现新版本 v\(info.version)"
+            case .failed:
+                self.updateStatus.stringValue = "检查失败，请稍后再试"
+            case .disabled:
+                self.updateStatus.stringValue = "已关闭自动检查，仍可手动检查"
+            }
         }
     }
 

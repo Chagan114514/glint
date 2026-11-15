@@ -17,7 +17,9 @@ jobs:
         run: ./build.sh
 
       - name: Package app
-        run: ditto -c -k --norsrc --noextattr --keepParent Glint.app Glint.zip
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Glint.app/Contents/Info.plist)
+          ditto -c -k --norsrc --noextattr --keepParent Glint.app "Glint-${VERSION}.zip"
 
       - name: Build DMG
         run: ./make-dmg.sh
@@ -27,5 +29,5 @@ jobs:
         with:
           name: Glint-macOS
           path: |
-            Glint.zip
-            Glint-1.1.dmg
+            Glint-*.zip
+            Glint-*.dmg

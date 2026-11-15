@@ -238,7 +238,8 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         view.translatesAutoresizingMaskIntoConstraints = false
         let left = makeLabel("支持自定义截图 / 录屏保存目录 · 全部数据仅保留在本机", size: 9.5, weight: .regular, color: Palette.textTertiary)
         view.addSubview(left)
-        let right = makeLabel("Glint 1.1", size: 9.5, weight: .medium, color: Palette.textTertiary)
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? UpdateChecker.currentVersion
+        let right = makeLabel("Glint \(version)", size: 9.5, weight: .medium, color: Palette.textTertiary)
         view.addSubview(right)
         NSLayoutConstraint.activate([
             left.leadingAnchor.constraint(equalTo: view.leadingAnchor),

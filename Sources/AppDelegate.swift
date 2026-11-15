@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installHotKeys()
         NSApp.activate(ignoringOtherApps: true)
         dashboard.show()
+        UpdateChecker.shared.checkOnLaunch()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -73,6 +74,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dashboard.show()
             case "settings":
                 showSettings()
+            case "update", "check-update", "checkupdate", "check-for-updates":
+                UpdateChecker.shared.checkManually(presenting: NSApp.keyWindow)
             case "permission":
                 requestPermissionFromUser()
             default:
@@ -213,6 +216,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = NSMenuItem(title: "设置…    ⌘,", action: #selector(openSettingsAction), keyEquivalent: "")
         settings.target = self
         menu.addItem(settings)
+
+        let updates = NSMenuItem(title: "检查更新…", action: #selector(checkForUpdatesAction), keyEquivalent: "")
+        updates.target = self
+        menu.addItem(updates)
 
         let permission = NSMenuItem(title: "屏幕权限设置…", action: #selector(openPermissionSettings), keyEquivalent: "")
         permission.target = self
@@ -701,6 +708,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettingsAction() {
         showSettings()
+    }
+
+    @objc private func checkForUpdatesAction() {
+        UpdateChecker.shared.checkManually(presenting: NSApp.keyWindow)
     }
 
     @objc private func openImagesAction() {

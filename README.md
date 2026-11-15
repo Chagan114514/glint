@@ -31,11 +31,22 @@
 - **全局快捷键**：不依赖辅助功能（Accessibility）权限。
 - **菜单栏常驻**：关闭主窗口后仍可从菜单栏或快捷键使用。
 - **默认排除自身**：截图 / 录屏不会把 Glint 自己的窗口、区域选择框、录制悬浮条录进去。
-- **完全本地**：不联网、不上传；只有在你选择麦克风作为声音来源时才会请求麦克风权限。
+- **内容完全本地**：截图、录屏、OCR、批注和导出都不上传；只有检查更新时会向更新服务器发送当前版本号，可在设置中关闭。
+
+## 检查更新
+
+启动时 Glint 会向 `http://101.37.126.79/api/glint/uploads` 发送一次版本查询（仅当前版本号、平台和 build），与服务器最新版本比较。发现新版本时会提示你前往 GitHub；可以选择「稍后」或「跳过此版本」。
+
+- 在 **设置 → 软件更新** 中可以手动检查、开启或关闭自动检查；
+- 服务器返回 `patch_url` / `files` 时为增量更新，只打开必要文件包；
+- 返回 `major: true` / `full: true` 时为重大更新，打开完整安装包；
+- 更新服务器不可达时自动检查静默失败，不影响截图和录屏。
+
+完整请求/响应格式见 [`UPDATE_API.md`](UPDATE_API.md)。
 
 ## 下载
 
-从 [Releases](../../releases/latest) 下载最新的 **Glint-1.1.dmg**，打开后把 **Glint** 拖进 **Applications** 文件夹即可。也提供 `Glint-1.1.zip` 作为免安装解压版本。
+从 [Releases](../../releases/latest) 下载最新的 **Glint-1.1.1.dmg**，打开后把 **Glint** 拖进 **Applications** 文件夹即可。也提供 `Glint-1.1.1.zip` 作为免安装解压版本。
 
 ![Glint DMG 安装界面](preview-dmg.png)
 
@@ -205,7 +216,7 @@ open Glint.app
 ./make-dmg.sh
 ```
 
-首次运行会通过 pip 把 `dmgbuild` 安装到 `.build/dmg-tools`，需要网络；产物为 `Glint-1.1.dmg`。
+首次运行会通过 pip 把 `dmgbuild` 安装到 `.build/dmg-tools`，需要网络；产物为 `Glint-1.1.1.dmg`。
 
 - 系统要求：macOS 14.0+
 - 已在 **macOS 26.6 / Apple Silicon** 实机验证
@@ -232,7 +243,7 @@ open Glint.app
 | `Sources/Models.swift` | 文件库、缩略图缓存、权限与偏好 |
 | `Sources/Theme.swift` | 颜色、字体、按钮和自绘组件 |
 | `dmg_settings.py` | DMG 窗口尺寸、背景、图标位置与卷宗设置 |
-| `make-dmg.sh` | 生成带品牌背景的 `Glint-1.1.dmg` |
+| `make-dmg.sh` | 生成带品牌背景的 `Glint-1.1.1.dmg` |
 | `site/` | 官网：中英文切换、GitHub Releases 自动同步、下载页速度提示 |
 | `.github/workflows/pages.yml` | GitHub Pages 自动部署 |
 
@@ -261,7 +272,7 @@ open Glint.app
 
 ## 隐私
 
-Glint 的所有截屏、录屏、OCR、批注、缩略图和导出都在本机完成。没有网络请求，没有账号系统，不会上传任何画面或音频。
+Glint 的所有截屏、录屏、OCR、批注、缩略图和导出都在本机完成。没有账号系统，不会上传任何画面或音频。唯一的网络请求是检查更新：只发送当前版本号和平台信息，可在「设置 → 软件更新」中关闭。
 
 ## 参与贡献
 

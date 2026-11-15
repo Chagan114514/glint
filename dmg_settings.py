@@ -1,5 +1,6 @@
 # dmgbuild settings for Glint
 # Usage: ./make-dmg.sh
+import os
 app = "Glint.app"
 
 files = [app]
@@ -8,7 +9,7 @@ symlinks = {"Applications": "/Applications"}
 icon = "Resources/Glint.icns"
 background = "Resources/dmg-background.png"
 
-volume_name = "Glint 1.1"
+volume_name = os.environ.get("GLINT_DMG_VOLUME", "Glint 1.1.1")
 format = "UDZO"
 
 window_rect = ((180, 180), (700, 440))

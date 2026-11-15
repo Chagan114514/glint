@@ -1,0 +1,78 @@
+# Glint 更新检查协议
+
+Glint 启动时（以及用户点击「检查更新」时）会向更新服务器发送当前版本。服务器只需返回最新版本；如果返回 `patch_url` 或 `files`，Glint 会把它视为**增量更新**，只打开必要文件包；如果返回 `major: true` 或 `full: true`，则视为**重大更新**，打开完整安装包。
+
+## 请求
+
+```http
+POST /api/glint/uploads
+Content-Type: application/json
+Accept: application/json
+
+{
+  "app": "glint",
+  "platform": "macos",
+  "version": "1.1.1",
+  "current_version": "1.1.1",
+  "build": "4"
+}
+```
+
+默认地址：
+
+```text
+http://101.37.126.79/api/glint/uploads
+```
+
+开发或测试时可以用环境变量覆盖：
+
+```bash
+GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/uploads ./Glint.app/Contents/MacOS/Glint
+```
+
+## 普通/增量更新响应
+
+```json
+{
+  "latest_version": "1.1.2",
+  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v1.1.2",
+  "patch_url": "https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.1-to-1.1.2.patch.zip",
+  "major": false,
+  "files": [
+    { "path": "Contents/Resources/..." },
+    { "path": "Contents/MacOS/Glint" }
+  ],
+  "notes": "本次只替换发生变化的文件。"
+}
+```
+
+- `patch_url` 应指向**只包含变化文件**的压缩包，而不是完整 DMG。
+- `files` 可选，用来告诉用户本次需要补充几个文件。
+- 客户端只负责提示并打开 `patch_url`，不会静默改写 App，避免未签名更新破坏应用。
+
+## 重大更新响应
+
+```json
+{
+  "latest_version": "2.0.0",
+  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v2.0.0",
+  "download_url": "https://github.com/Chagan114514/glint/releases/download/v2.0.0/Glint-2.0.0.dmg",
+  "major": true,
+  "notes": "需要完整安装包。"
+}
+```
+
+- `major` 或 `full` 为 `true` 时，客户端打开 `download_url` / `release_url`。
+- 重大更新通常意味着底层框架、最低系统版本或签名结构变化，应该重新下载本体。
+
+## 版本比较
+
+支持 `1.0.2`、`v1.0.2`、`1.0.10` 等格式，按数字段比较，不会把 `1.0.10` 当成 `1.0.1`。服务端返回的版本必须大于本地 `CFBundleShortVersionString` 才会提示。
+
+## 客户端行为
+
+- 默认每次启动检查一次；设置中可关闭。
+- 「稍后」下次启动会再次提示。
+- 「跳过此版本」会记住该版本，直到用户手动检查。
+- 设置 → 软件更新 → 检查更新 可随时手动检查，即使自动检查已关闭。
+- 更新服务器不可达时自动检查静默失败，不打扰用户；手动检查会显示错误。
