@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Security
 
 struct UpdateInfo {
     let version: String
@@ -36,6 +37,31 @@ enum UpdateCheckResult {
     case disabled
 }
 
+/// The production server currently presents a certificate for `chagandev.space`
+/// on its bare IP. Validate that certificate against the name it was issued for,
+/// while still requiring a valid chain, so HTTPS works without disabling TLS checks.
+private final class UpdateTrustDelegate: NSObject, URLSessionDelegate {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        let policy = SecPolicyCreateSSL(true, "chagandev.space" as CFString)
+        SecTrustSetPolicies(trust, policy)
+        var error: CFError?
+        if SecTrustEvaluateWithError(trust, &error) {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
+    }
+}
+
 final class UpdateChecker {
     static let shared = UpdateChecker()
 
@@ -44,15 +70,20 @@ final class UpdateChecker {
            let url = URL(string: raw) {
             return url
         }
-        return URL(string: "http://101.37.126.79/api/glint/uploads")!
+        return URL(string: "https://101.37.126.79/api/glint/updates")!
+    }
+
+    static var fallbackEndpoint: URL? {
+        guard ProcessInfo.processInfo.environment["GLINT_UPDATE_URL"] == nil else { return nil }
+        return URL(string: "http://101.37.126.79/api/glint/updates")
     }
 
     static var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.1"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.2"
     }
 
     static var buildVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "4"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "5"
     }
 
     private var checking = false
@@ -115,18 +146,35 @@ final class UpdateChecker {
     // MARK: - Networking
 
     private func request(completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
-        requestServer { [weak self] result in
-            switch result {
-            case .success:
-                completion(result)
-            case .failure(let error):
-                self?.requestGitHub { info in
-                    if let info {
-                        completion(.success(info))
-                    } else {
-                        completion(.failure(error))
-                    }
+        requestEndpoint(Self.endpoint) { [weak self] primary in
+            if case .success = primary {
+                completion(primary)
+                return
+            }
+            guard let fallbackEndpoint = Self.fallbackEndpoint else {
+                self?.finishWithGitHub(primary, completion: completion)
+                return
+            }
+            self?.requestEndpoint(fallbackEndpoint) { secondary in
+                if case .success = secondary {
+                    completion(secondary)
+                } else {
+                    self?.finishWithGitHub(primary, completion: completion)
                 }
+            }
+        }
+    }
+
+    private func finishWithGitHub(_ primary: Result<UpdateInfo, UpdateFailure>, completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
+        guard case .failure(let error) = primary else {
+            completion(primary)
+            return
+        }
+        requestGitHub { info in
+            if let info {
+                completion(.success(info))
+            } else {
+                completion(.failure(error))
             }
         }
     }
@@ -178,23 +226,38 @@ final class UpdateChecker {
         return version
     }
 
-    private func requestServer(completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
-        var request = URLRequest(url: Self.endpoint)
-        request.httpMethod = "POST"
+    private func requestEndpoint(_ endpoint: URL, completion: @escaping (Result<UpdateInfo, UpdateFailure>) -> Void) {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            completion(.failure(UpdateFailure(message: "更新地址无效。")))
+            return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "app", value: "glint"),
+            URLQueryItem(name: "platform", value: "macos"),
+            URLQueryItem(name: "version", value: Self.currentVersion),
+            URLQueryItem(name: "current_version", value: Self.currentVersion),
+            URLQueryItem(name: "build", value: Self.buildVersion),
+        ]
+        guard let finalURL = components.url else {
+            completion(.failure(UpdateFailure(message: "更新地址无效。")))
+            return
+        }
+        var request = URLRequest(url: finalURL)
+        request.httpMethod = "GET"
         request.timeoutInterval = 10
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Glint/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
-        let payload: [String: Any] = [
-            "app": "glint",
-            "platform": "macos",
-            "version": Self.currentVersion,
-            "current_version": Self.currentVersion,
-            "build": Self.buildVersion,
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        let delegate = UpdateTrustDelegate()
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        session.dataTask(with: request) { data, response, error in
+            _ = session
+            _ = delegate
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if ProcessInfo.processInfo.environment["GLINT_UPDATE_DEBUG"] == "1" {
+                let text = "[UpdateEndpoint] \(endpoint.absoluteString) status=\(status) bytes=\(data?.count ?? 0) error=\(error?.localizedDescription ?? "none")\n"
+                FileHandle.standardError.write(text.data(using: .utf8)!)
+            }
             if let error {
                 completion(.failure(UpdateFailure(message: error.localizedDescription)))
                 return

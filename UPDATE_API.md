@@ -5,38 +5,38 @@ Glint 启动时（以及用户点击「检查更新」时）会向更新服务�
 ## 请求
 
 ```http
-POST /api/glint/uploads
-Content-Type: application/json
+GET /api/glint/updates?app=glint&platform=macos&version=1.1.2&current_version=1.1.2&build=5
 Accept: application/json
-
-{
-  "app": "glint",
-  "platform": "macos",
-  "version": "1.1.1",
-  "current_version": "1.1.1",
-  "build": "4"
-}
 ```
+
+查询参数：
+
+| 参数 | 值 |
+| --- | --- |
+| `app` | `glint` |
+| `platform` | `macos` |
+| `version` / `current_version` | 当前版本，如 `1.1.2` |
+| `build` | 当前构建号，如 `5` |
 
 默认地址：
 
 ```text
-http://101.37.126.79/api/glint/uploads
+https://101.37.126.79/api/glint/updates
 ```
 
 开发或测试时可以用环境变量覆盖：
 
 ```bash
-GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/uploads ./Glint.app/Contents/MacOS/Glint
+GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/updates ./Glint.app/Contents/MacOS/Glint
 ```
 
 ## 普通/增量更新响应
 
 ```json
 {
-  "latest_version": "1.1.2",
-  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v1.1.2",
-  "patch_url": "https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.1-to-1.1.2.patch.zip",
+  "latest_version": "1.1.3",
+  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v1.1.3",
+  "patch_url": "https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2-to-1.1.3.patch.zip",
   "major": false,
   "files": [
     { "path": "Contents/Resources/..." },
