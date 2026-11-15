@@ -9,22 +9,44 @@
   const FALLBACK_RELEASES = [
     {
       tag_name: "v1.1.2",
-      name: "Glint 1.1.2 — 批注、OCR、滚动截图与麦克风",
-      published_at: "2026-11-15T00:09:53Z",
+      name: "Glint 1.1.2 — 更新检查",
+      published_at: "2026-11-15T11:19:00Z",
       html_url: `https://github.com/${REPO}/releases/tag/v1.1.2`,
       prerelease: false,
       draft: false,
       assets: [
         {
           name: "Glint-1.1.2.dmg",
-          size: 1058163,
+          size: 1097187,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.2/Glint-1.1.2.dmg`,
           download_count: 1
         },
         {
           name: "Glint-1.1.2.zip",
-          size: 4825807,
+          size: 596697,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.2/Glint-1.1.2.zip`,
+          download_count: 1
+        }
+      ]
+    },
+    {
+      tag_name: "v1.1.1",
+      name: "Glint v1.1.1",
+      published_at: "2026-11-15T11:04:52Z",
+      html_url: `https://github.com/${REPO}/releases/tag/v1.1.1`,
+      prerelease: false,
+      draft: false,
+      assets: [
+        {
+          name: "Glint-1.1.1.dmg",
+          size: 1089734,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.dmg`,
+          download_count: 1
+        },
+        {
+          name: "Glint-1.1.1.zip",
+          size: 589721,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.zip`,
           download_count: 1
         }
       ]
