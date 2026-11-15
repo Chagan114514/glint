@@ -30,7 +30,7 @@ For screenshots and debugging, add `?nodialog=1` to skip the download-speed dial
 
 GitHub Actions workflow: `.github/workflows/pages.yml`.
 
-The workflow deploys the `site/` directory to GitHub Pages. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions** if it is not already enabled.
+The workflow deploys the `site/` directory to GitHub Pages. Repository Pages source is **GitHub Actions**; every push touching `site/**` triggers a fresh deployment.
 
 Expected URL: `https://chagan114514.github.io/glint/`.
 
