@@ -48,7 +48,7 @@
 
 ## 下载
 
-从 [Releases](../../releases/latest) 下载最新的 **Glint-1.2.0.dmg**，打开后把 **Glint** 拖进 **Applications** 文件夹即可。也提供 `Glint-1.2.0.zip` 作为免安装解压版本。
+从 [Releases](../../releases/tag/v1.2.0) 下载最新的 **Glint-1.2.0.dmg**，打开后把 **Glint** 拖进 **Applications** 文件夹即可。也提供 `Glint-1.2.0.zip` 作为免安装解压版本。
 
 ![Glint DMG 安装界面](preview-dmg.png)
 

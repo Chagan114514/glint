@@ -444,8 +444,19 @@
     return (release.assets || []).find((asset) => String(asset.name || "").toLowerCase().endsWith("." + ext));
   }
 
+  function isCompatRelease(release) {
+    return /-macos11$/i.test(String(release.tag_name || ""));
+  }
+
+  // The compatibility build is published as its own tag and must not become
+  // the "latest" main app on the site.
+  function stableReleases() {
+    return releases.filter((release) => !isCompatRelease(release));
+  }
+
   function latestRelease() {
-    return releases.find((release) => !release.prerelease) || releases[0] || null;
+    const stable = stableReleases();
+    return stable.find((release) => !release.prerelease) || stable[0] || null;
   }
 
   function setText(selector, value) {
@@ -573,11 +584,12 @@
     setText("#download-page-version", release.tag_name || "");
 
     const list = $("#version-list");
+    const listed = stableReleases();
     if (list) {
-      if (!releases.length) {
+      if (!listed.length) {
         list.innerHTML = `<div class="empty-note">${escapeHtml(t("dl.empty"))}</div>`;
       } else {
-        list.innerHTML = releases.map((item) => {
+        list.innerHTML = listed.map((item) => {
           const itemDmg = findAsset(item, "dmg");
           const itemZip = findAsset(item, "zip");
           const links = [];
