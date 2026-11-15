@@ -17,6 +17,8 @@
 
 网站源码位于 [`site/`](site/)，纯 HTML / CSS / JavaScript，无第三方运行时依赖。
 
+> 首次上线需要在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**，然后重新运行 **Deploy website** workflow。
+
 ## 功能
 
 - **区域截图**：拖拽框选，实时显示像素尺寸，松开即截。
