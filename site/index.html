@@ -34,10 +34,10 @@
     "name": "Glint",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "macOS 14+",
-    "softwareVersion": "1.1.2",
+    "softwareVersion": "1.2.0",
     "description": "Native macOS screenshot and screen recording utility with annotation, OCR, scrolling capture, pausable recording, system audio and microphone.",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "downloadUrl": "https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2.dmg",
+    "downloadUrl": "https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.2.0.dmg",
     "license": "https://github.com/Chagan114514/glint/blob/main/LICENSE"
   }
   </script>
@@ -93,7 +93,7 @@
   <section class="hero">
     <div class="container hero-grid">
       <div class="hero-copy">
-        <span class="eyebrow"><span class="pulse"></span><span data-i18n="hero.badge">macOS 14+ · Apple Silicon</span><span>·</span><span id="hero-version">v1.1.2</span></span>
+        <span class="eyebrow"><span class="pulse"></span><span data-i18n="hero.badge">macOS 14+ · Apple Silicon</span><span>·</span><span id="hero-version">v1.2.0</span></span>
         <h1><span data-i18n="hero.title1">截屏与录屏，</span><br><span class="gradient" data-i18n="hero.title2">恰到好处。</span></h1>
         <p class="hero-lead" data-i18n="hero.lead">Glint 把区域、窗口、全屏和滚动截图，保存后的批注与本地 OCR，以及可暂停续录的屏幕录制，放进一个安静的原生 macOS 应用。</p>
         <div class="hero-actions">
@@ -163,7 +163,25 @@
         <article class="feature reveal">
           <div class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg></div>
           <h3 data-i18n="feature.hotkeys.title">菜单栏与快捷键</h3>
-          <p data-i18n="feature.hotkeys.desc">关闭主窗口后仍在菜单栏待命。Carbon 全局快捷键，不申请辅助功能或输入监控权限。</p>
+          <p data-i18n="feature.hotkeys.desc">关闭主窗口后仍在菜单栏待命。六项全局快捷键都可自定义，不申请辅助功能或输入监控权限。</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-tag">⌃⌥3</span>
+          <div class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg></div>
+          <h3 data-i18n="feature.display.title">多显示器选择</h3>
+          <p data-i18n="feature.display.desc">全屏截图和整屏录屏先列出所有显示器，显示分辨率、Retina 与鼠标位置，点击即选。</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-tag">⌘D</span>
+          <div class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></div>
+          <h3 data-i18n="feature.downloader.title">多线程下载器</h3>
+          <p data-i18n="feature.downloader.desc">下载任意 HTTP/HTTPS 文件，1–8 线程、进度与速度、取消和 Finder 定位，全部内置。</p>
+        </article>
+        <article class="feature reveal">
+          <span class="feature-tag">1.2</span>
+          <div class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg></div>
+          <h3 data-i18n="feature.updates.title">更新说明与文件判断</h3>
+          <p data-i18n="feature.updates.desc">更新弹窗显示 Release 说明，并自动比对本地文件大小与 SHA-256，只提示真正需要的更新。</p>
         </article>
       </div>
     </div>
@@ -232,12 +250,12 @@
       <div class="release-panel reveal">
         <div>
           <div class="kicker" data-i18n="news.kicker">最新版本</div>
-          <h2 data-i18n="news.title">1.1 让截图更有用。</h2>
+          <h2 data-i18n="news.title">1.2 让工作流更顺手。</h2>
           <div class="release-meta">
-            <span class="pill gold" id="cta-version">v1.1.2</span>
+            <span class="pill gold" id="cta-version">v1.2.0</span>
             <span class="pill" data-i18n="news.date">2026 年 11 月</span>
           </div>
-          <a class="btn btn-primary" href="download.html"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="news.download">获取 1.1.2</span></a>
+          <a class="btn btn-primary" href="download.html"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="news.download">获取 1.2.0</span></a>
         </div>
         <ul class="change-list">
           <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span><strong data-i18n="news.item1.title">保存后批注</strong><span data-i18n="news.item1.desc">画笔、箭头、形状与文字，保存为副本。</span></span></li>
@@ -257,18 +275,18 @@
           <h2 data-i18n="cta.title">把 Glint 放进 Applications。</h2>
           <p data-i18n="cta.lead">下载最新版本，拖入 Applications，授权屏幕录制，然后按 ⌃⌥1 截下第一张图。</p>
           <div class="download-actions">
-            <a class="btn btn-primary" id="cta-dmg" href="https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2.dmg"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="cta.dmg">下载 DMG</span></a>
-            <a class="btn btn-ghost" id="cta-zip" href="https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2.zip"><span data-i18n="cta.zip">下载 ZIP</span></a>
+            <a class="btn btn-primary" id="cta-dmg" href="https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.2.0.dmg"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="cta.dmg">下载 DMG</span></a>
+            <a class="btn btn-ghost" id="cta-zip" href="https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.2.0.zip"><span data-i18n="cta.zip">下载 ZIP</span></a>
           </div>
         </div>
         <div class="download-side">
-          <a class="mini-asset" id="cta-asset-dmg" href="https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2.dmg">
+          <a class="mini-asset" id="cta-asset-dmg" href="https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.2.0.dmg">
             <svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg>
-            <span><strong>Glint-1.1.2.dmg</strong><span data-i18n="cta.assetDmg">推荐 · 拖拽安装</span></span>
+            <span><strong>Glint-1.2.0.dmg</strong><span data-i18n="cta.assetDmg">推荐 · 拖拽安装</span></span>
           </a>
-          <a class="mini-asset" id="cta-asset-zip" href="https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2.zip">
+          <a class="mini-asset" id="cta-asset-zip" href="https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.2.0.zip">
             <svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>
-            <span><strong>Glint-1.1.2.zip</strong><span data-i18n="cta.assetZip">便携版本 · 解压即用</span></span>
+            <span><strong>Glint-1.2.0.zip</strong><span data-i18n="cta.assetZip">便携版本 · 解压即用</span></span>
           </a>
           <a class="mini-asset" href="download.html">
             <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>

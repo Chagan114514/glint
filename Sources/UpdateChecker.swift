@@ -1,6 +1,14 @@
 import AppKit
 import Foundation
 import Security
+import CryptoKit
+
+struct UpdateFile {
+    let path: String
+    let sha256: String?
+    let size: Int64
+    let url: URL?
+}
 
 struct UpdateInfo {
     let version: String
@@ -10,9 +18,33 @@ struct UpdateInfo {
     let notes: String?
     let isMajor: Bool
     let fileCount: Int
+    let files: [UpdateFile]
+    let neededFiles: [UpdateFile]
+
+    init(
+        version: String,
+        releaseURL: URL?,
+        downloadURL: URL?,
+        patchURL: URL?,
+        notes: String?,
+        isMajor: Bool,
+        fileCount: Int,
+        files: [UpdateFile] = [],
+        neededFiles: [UpdateFile] = []
+    ) {
+        self.version = version
+        self.releaseURL = releaseURL
+        self.downloadURL = downloadURL
+        self.patchURL = patchURL
+        self.notes = notes
+        self.isMajor = isMajor
+        self.fileCount = fileCount
+        self.files = files
+        self.neededFiles = neededFiles
+    }
 
     var isIncremental: Bool {
-        !isMajor && (patchURL != nil || fileCount > 0)
+        !isMajor && patchURL != nil
     }
 
     var actionURL: URL? {
@@ -23,6 +55,44 @@ struct UpdateInfo {
     }
 
     var displayVersion: String { "v\(version)" }
+
+    func withNotes(_ notes: String?) -> UpdateInfo {
+        UpdateInfo(
+            version: version,
+            releaseURL: releaseURL,
+            downloadURL: downloadURL,
+            patchURL: patchURL,
+            notes: notes,
+            isMajor: isMajor,
+            fileCount: fileCount,
+            files: files,
+            neededFiles: neededFiles
+        )
+    }
+}
+
+enum UpdatePlanner {
+    static func neededFiles(from files: [UpdateFile], bundle: Bundle = .main) -> [UpdateFile] {
+        guard !files.isEmpty else { return [] }
+        return files.filter { file in
+            let cleanPath = file.path
+                .replacingOccurrences(of: "Glint.app/", with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !cleanPath.isEmpty else { return true }
+            let local = bundle.bundleURL.appendingPathComponent(cleanPath)
+            guard FileManager.default.fileExists(atPath: local.path) else { return true }
+            if let expected = file.sha256?.lowercased(), !expected.isEmpty {
+                guard let data = try? Data(contentsOf: local),
+                      let digest = SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() as String? else { return true }
+                return digest != expected
+            }
+            if file.size > 0 {
+                let size = (try? FileManager.default.attributesOfItem(atPath: local.path)[.size] as? NSNumber)?.int64Value ?? 0
+                return size != file.size
+            }
+            return false
+        }
+    }
 }
 
 struct UpdateFailure: LocalizedError {
@@ -79,11 +149,11 @@ final class UpdateChecker {
     }
 
     static var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.2"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.0"
     }
 
     static var buildVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "5"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "6"
     }
 
     private var checking = false
@@ -132,8 +202,10 @@ final class UpdateChecker {
                         return
                     }
 
-                    self.presentUpdate(info, window: window, manual: manual)
-                    completion(.available(info))
+                    self.enrich(info) { enriched in
+                        self.presentUpdate(enriched, window: window, manual: manual)
+                        completion(.available(enriched))
+                    }
 
                 case .failure(let error):
                     if manual { self.presentFailure(error.message, window: window) }
@@ -141,6 +213,96 @@ final class UpdateChecker {
                 }
             }
         }
+    }
+
+    private func enrich(_ info: UpdateInfo, completion: @escaping (UpdateInfo) -> Void) {
+        if let notes = info.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+            completion(info)
+            return
+        }
+        fetchAtomNotes(version: info.version) { notes in
+            if let notes, !notes.isEmpty {
+                completion(info.withNotes(notes))
+                return
+            }
+            self.fetchReleasePageNotes(version: info.version) { pageNotes in
+                completion(info.withNotes(pageNotes ?? "此版本暂未提供详细更新说明，请前往 GitHub Release 页面查看。"))
+            }
+        }
+    }
+
+    private func fetchAtomNotes(version: String, completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: "https://github.com/Chagan114514/glint/releases.atom") else {
+            completion(nil); return
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.setValue("application/atom+xml, text/xml", forHTTPHeaderField: "Accept")
+        request.setValue("Glint/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            guard let data, let xml = String(data: data, encoding: .utf8) else {
+                completion(nil); return
+            }
+            completion(Self.notesFromAtom(xml, version: version))
+        }.resume()
+    }
+
+    private func fetchReleasePageNotes(version: String, completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: "https://github.com/Chagan114514/glint/releases/tag/v\(version)") else {
+            completion(nil); return
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.setValue("text/html", forHTTPHeaderField: "Accept")
+        request.setValue("Glint/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            let html = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            completion(Self.markdownBody(from: html))
+        }.resume()
+    }
+
+    static func notesFromAtom(_ xml: String, version: String) -> String? {
+        let pattern = "<entry>(.*?)</entry>"
+        let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+        guard let matches = regex?.matches(in: xml, range: range) else { return nil }
+        let target = version.lowercased()
+        for match in matches {
+            guard let entryRange = Range(match.range(at: 1), in: xml) else { continue }
+            let entry = String(xml[entryRange])
+            guard entry.lowercased().contains("v\(target)") || entry.lowercased().contains("/tag/v\(target)") else { continue }
+            guard let contentStart = entry.range(of: "<content type=\"html\">"),
+                  let contentEnd = entry.range(of: "</content>", options: .backwards) else { continue }
+            let raw = String(entry[contentStart.upperBound..<contentEnd.lowerBound])
+            let text = plainText(fromHTML: raw)
+            if !text.isEmpty { return text }
+        }
+        return nil
+    }
+
+    private static func plainText(fromHTML raw: String) -> String {
+        var text = raw
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+        text = text.replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "</(p|li|h[1-6]|div|tr)>", with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func markdownBody(from html: String) -> String? {
+        guard let start = html.range(of: "<div class=\"markdown-body"),
+              let bodyStart = html[start.lowerBound...].range(of: ">") else { return nil }
+        let tail = html[bodyStart.upperBound...]
+        guard let end = tail.range(of: "</div>", options: .backwards) else { return nil }
+        let text = plainText(fromHTML: String(tail[..<end.lowerBound]))
+        guard !text.isEmpty else { return nil }
+        return String(text.prefix(4000))
     }
 
     // MARK: - Networking
@@ -319,8 +481,17 @@ final class UpdateChecker {
         let majorFlag = boolValue(payload["major"]) || boolValue(payload["is_major"]) || boolValue(payload["isMajor"])
         let fullFlag = boolValue(payload["full"]) || boolValue(payload["full_update"]) || boolValue(payload["fullUpdate"]) || boolValue(payload["requires_full_download"]) || boolValue(payload["requiresFullDownload"])
         let major = majorFlag || fullFlag || type.contains("major") || type.contains("full") || type.contains("reinstall")
-        let files = payload["files"] as? [[String: Any]] ?? payload["necessary_files"] as? [[String: Any]] ?? []
+        let fileObjects = payload["files"] as? [[String: Any]] ?? payload["necessary_files"] as? [[String: Any]] ?? payload["changed_files"] as? [[String: Any]] ?? []
+        let files: [UpdateFile] = fileObjects.compactMap { object in
+            guard let path = object["path"] as? String ?? object["file"] as? String ?? object["name"] as? String,
+                  !path.isEmpty else { return nil }
+            let sha = object["sha256"] as? String ?? object["sha"] as? String ?? object["checksum"] as? String
+            let size = (object["size"] as? NSNumber)?.int64Value ?? Int64(object["size"] as? String ?? "") ?? 0
+            let rawURL = object["url"] as? String ?? object["download_url"] as? String ?? object["downloadUrl"] as? String
+            return UpdateFile(path: path, sha256: sha, size: size, url: rawURL.flatMap(URL.init(string:)))
+        }
         let notes = stringValue(payload, keys: ["notes", "release_notes", "releaseNotes", "body", "message", "description"])
+        let needed = UpdatePlanner.neededFiles(from: files)
 
         return UpdateInfo(
             version: version,
@@ -329,7 +500,9 @@ final class UpdateChecker {
             patchURL: patchURL,
             notes: notes,
             isMajor: major,
-            fileCount: files.count
+            fileCount: files.count,
+            files: files,
+            neededFiles: needed
         )
     }
 
@@ -406,12 +579,37 @@ final class UpdateChecker {
         } else {
             text += "请前往 GitHub 下载最新版本。"
         }
-        if let notes = info.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
-            text += "\n\n\(notes.prefix(500))"
+        if info.fileCount > 0 {
+            if info.neededFiles.isEmpty {
+                text += "\n已自动判断：本地 \(info.fileCount) 个文件均为最新，无需增量文件。"
+            } else {
+                text += "\n已自动判断：\(info.fileCount) 个文件中需要更新 \(info.neededFiles.count) 个。"
+                let names = info.neededFiles.prefix(6).map(\.path).joined(separator: "、")
+                text += "\n\(names)"
+            }
         }
         alert.informativeText = text
-        let spacer = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 1))
-        alert.accessoryView = spacer
+        let notes = info.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !notes.isEmpty {
+            let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 380, height: 128))
+            scroll.hasVerticalScroller = true
+            scroll.autohidesScrollers = true
+            scroll.borderType = .bezelBorder
+            scroll.drawsBackground = false
+            let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 360, height: 128))
+            textView.isEditable = false
+            textView.isSelectable = true
+            textView.drawsBackground = false
+            textView.font = NSFont.systemFont(ofSize: 11)
+            textView.textColor = Palette.text.withAlphaComponent(0.86)
+            textView.textContainerInset = NSSize(width: 7, height: 6)
+            textView.string = notes
+            scroll.documentView = textView
+            alert.accessoryView = scroll
+        } else {
+            let spacer = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 1))
+            alert.accessoryView = spacer
+        }
         alert.addButton(withTitle: info.isIncremental ? "下载必要更新" : "前往 GitHub 更新")
         alert.addButton(withTitle: "稍后")
         if !manual { alert.addButton(withTitle: "跳过此版本") }

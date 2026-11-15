@@ -26,6 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activeSound: NSSound?
     private var settingsWindow: SettingsWindowController?
     private var scrollingCapture: ScrollingCaptureController?
+    private var displayPicker: DisplayPickerController?
+    private var shortcutSettings: ShortcutSettingsController?
+    private var downloadWindow: DownloadWindowController?
+    private var annotationEditor: AnnotationEditorController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
@@ -53,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme?.lowercased() == "glint" {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             let raw = (url.host ?? url.path).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             let action = raw.lowercased()
             switch action {
@@ -62,6 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 beginWindowScreenshot()
             case "full", "fullscreen", "capture-screen":
                 captureFullScreen()
+            case "displays", "display":
+                showDisplayPicker()
             case "scroll", "scrolling", "scrolling-capture":
                 beginScrollingCapture()
             case "record", "recording":
@@ -74,6 +81,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dashboard.show()
             case "settings":
                 showSettings()
+            case "shortcuts", "shortcut":
+                showShortcutSettings()
+            case "download", "downloader":
+                showDownloadWindow()
+            case "annotate", "annotation":
+                if let raw = components?.queryItems?.first(where: { $0.name == "path" })?.value,
+                   !raw.isEmpty {
+                    showAnnotation(path: raw)
+                }
             case "update", "check-update", "checkupdate", "check-for-updates":
                 UpdateChecker.shared.checkManually(presenting: NSApp.keyWindow)
             case "permission":
@@ -119,6 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: CaptureLibrary.settingsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.dashboard.refreshRecentAndLibrary()
         }
+        NotificationCenter.default.addObserver(forName: HotKeyStore.changed, object: nil, queue: .main) { [weak self] _ in
+            HotKeyManager.shared.reinstall()
+            self?.updateStatusMenu()
+        }
     }
 
     // MARK: - Status item
@@ -146,19 +166,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(open)
         menu.addItem(.separator())
 
-        let area = NSMenuItem(title: "区域截图    ⌃⌥1", action: #selector(areaScreenshotAction), keyEquivalent: "")
+        let area = NSMenuItem(title: "区域截图    \(HotKeyStore.label(for: .area))", action: #selector(areaScreenshotAction), keyEquivalent: "")
         area.target = self
         menu.addItem(area)
 
-        let window = NSMenuItem(title: "窗口截图    ⌃⌥2", action: #selector(windowScreenshotAction), keyEquivalent: "")
+        let window = NSMenuItem(title: "窗口截图    \(HotKeyStore.label(for: .window))", action: #selector(windowScreenshotAction), keyEquivalent: "")
         window.target = self
         menu.addItem(window)
 
-        let full = NSMenuItem(title: "全屏截图    ⌃⌥3", action: #selector(fullScreenshotAction), keyEquivalent: "")
+        let full = NSMenuItem(title: "全屏截图    \(HotKeyStore.label(for: .fullScreen))", action: #selector(fullScreenshotAction), keyEquivalent: "")
         full.target = self
         menu.addItem(full)
 
-        let scroll = NSMenuItem(title: "滚动截图    ⌃⌥6", action: #selector(scrollScreenshotAction), keyEquivalent: "")
+        let scroll = NSMenuItem(title: "滚动截图    \(HotKeyStore.label(for: .scroll))", action: #selector(scrollScreenshotAction), keyEquivalent: "")
         scroll.target = self
         menu.addItem(scroll)
 
@@ -166,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !session.stopping {
                 let paused = session.recorder.isPaused
                 let pause = NSMenuItem(
-                    title: paused ? "继续录制    ⌃⌥5" : "暂停录制    ⌃⌥5",
+                    title: paused ? "继续录制    \(HotKeyStore.label(for: .pause))" : "暂停录制    \(HotKeyStore.label(for: .pause))",
                     action: #selector(pauseRecordingAction),
                     keyEquivalent: ""
                 )
@@ -174,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 menu.addItem(pause)
             }
             let stop = NSMenuItem(
-                title: session.stopping ? "正在保存录屏…" : "停止录制    ⌃⌥4",
+                title: session.stopping ? "正在保存录屏…" : "停止录制    \(HotKeyStore.label(for: .record))",
                 action: #selector(stopRecordingAction),
                 keyEquivalent: ""
             )
@@ -186,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             starting.isEnabled = false
             menu.addItem(starting)
         } else {
-            let record = NSMenuItem(title: "屏幕录制…    ⌃⌥4", action: #selector(recordAction), keyEquivalent: "")
+            let record = NSMenuItem(title: "屏幕录制…    \(HotKeyStore.label(for: .record))", action: #selector(recordAction), keyEquivalent: "")
             record.target = self
             menu.addItem(record)
         }
@@ -212,6 +232,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             conflict.isEnabled = false
             menu.addItem(conflict)
         }
+
+        let downloader = NSMenuItem(title: "下载器…    ⌘D", action: #selector(openDownloadAction), keyEquivalent: "d")
+        downloader.keyEquivalentModifierMask = [.command]
+        downloader.target = self
+        menu.addItem(downloader)
+
+        let displays = NSMenuItem(title: "选择显示器…", action: #selector(chooseDisplayAction), keyEquivalent: "")
+        displays.target = self
+        menu.addItem(displays)
+
+        let shortcuts = NSMenuItem(title: "快捷键…", action: #selector(openShortcutSettingsAction), keyEquivalent: "")
+        shortcuts.target = self
+        menu.addItem(shortcuts)
 
         let settings = NSMenuItem(title: "设置…    ⌘,", action: #selector(openSettingsAction), keyEquivalent: "")
         settings.target = self
@@ -298,6 +331,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Settings
 
+    private func showDownloadWindow() {
+        if let downloadWindow {
+            downloadWindow.show()
+            return
+        }
+        let controller = DownloadWindowController { [weak self] in
+            self?.downloadWindow = nil
+        }
+        downloadWindow = controller
+        controller.show()
+    }
+
+    private func showAnnotation(path: String) {
+        let url = URL(fileURLWithPath: path)
+        guard let image = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let editor = AnnotationEditorController(sourceURL: url, image: image, scale: 1) { [weak self] in
+            self?.annotationEditor = nil
+        }
+        annotationEditor = editor
+        editor.show()
+    }
+
+    private func showShortcutSettings() {
+        if let shortcutSettings {
+            shortcutSettings.show()
+            return
+        }
+        let controller = ShortcutSettingsController()
+        shortcutSettings = controller
+        controller.show()
+    }
+
     private func showSettings() {
         if let settingsWindow {
             settingsWindow.show()
@@ -345,7 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Screenshots
 
     private var hasActiveChooser: Bool {
-        areaSelector != nil || windowPicker != nil || recordChooser != nil || scrollingCapture != nil
+        areaSelector != nil || windowPicker != nil || recordChooser != nil || scrollingCapture != nil || displayPicker != nil
     }
 
     private func beginAreaScreenshot() {
@@ -376,9 +441,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         picker.show()
     }
 
+    @objc private func chooseDisplayAction() { showDisplayPicker() }
+
+    private func showDisplayPicker() {
+        guard !hasActiveChooser else { return }
+        let picker = DisplayPickerController(purpose: .screenshot) { [weak self] screen in
+            guard let self else { return }
+            self.displayPicker = nil
+            guard let screen else { return }
+            self.captureFullScreen(on: screen)
+        }
+        displayPicker = picker
+        picker.show()
+    }
+
     private func captureFullScreen() {
         guard !hasActiveChooser, ensurePermission() else { return }
+        if NSScreen.screens.count > 1 {
+            let picker = DisplayPickerController(purpose: .screenshot) { [weak self] screen in
+                guard let self else { return }
+                self.displayPicker = nil
+                guard let screen else { return }
+                self.captureFullScreen(on: screen)
+            }
+            displayPicker = picker
+            picker.show()
+            return
+        }
         guard let screen = screenUnderMouse() else { return }
+        captureFullScreen(on: screen)
+    }
+
+    private func captureFullScreen(on screen: NSScreen) {
         Task { @MainActor in
             do {
                 let captured = try await CaptureEngine.shared.captureFullScreen(screen: screen)
@@ -461,19 +555,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleRecordChoice(_ choice: RecordChoice, audioSource: AudioSource) {
         switch choice {
         case .display:
-            guard let screen = screenUnderMouse() else { return }
-            Task { @MainActor in
-                do {
-                    let content = try await CaptureEngine.shared.loadContent()
-                    let display = try CaptureEngine.shared.display(for: screen, in: content)
-                    self.startRecording(
-                        target: .display(display: display, name: screen.glintName),
-                        audioSource: audioSource
-                    )
-                } catch {
-                    self.handleRecordError(error)
+            let picker = DisplayPickerController(purpose: .recording) { [weak self] screen in
+                guard let self else { return }
+                self.displayPicker = nil
+                guard let screen else { return }
+                Task { @MainActor in
+                    do {
+                        let content = try await CaptureEngine.shared.loadContent()
+                        let display = try CaptureEngine.shared.display(for: screen, in: content)
+                        self.startRecording(
+                            target: .display(display: display, name: screen.glintName),
+                            audioSource: audioSource
+                        )
+                    } catch {
+                        self.handleRecordError(error)
+                    }
                 }
             }
+            displayPicker = picker
+            picker.show()
 
         case .area:
             let selector = AreaSelectorController(purpose: .recording) { [weak self] selection in
@@ -708,6 +808,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettingsAction() {
         showSettings()
+    }
+
+    @objc private func openShortcutSettingsAction() {
+        showShortcutSettings()
+    }
+
+    @objc private func openDownloadAction() {
+        showDownloadWindow()
     }
 
     @objc private func checkForUpdatesAction() {

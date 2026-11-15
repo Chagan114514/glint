@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 
 enum AnnotationTool: Int, CaseIterable {
     case pen
@@ -6,6 +7,8 @@ enum AnnotationTool: Int, CaseIterable {
     case rectangle
     case ellipse
     case text
+    case crop
+    case mosaic
 }
 
 struct Annotation {
@@ -23,16 +26,19 @@ struct Annotation {
 }
 
 final class AnnotationCanvasView: NSView {
-    let image: CGImage
+    private(set) var image: CGImage
     var tool: AnnotationTool = .pen
     var color: NSColor = Palette.danger
     var width: CGFloat = 0.008
     var onChanged: (() -> Void)?
     var onTextRequested: ((CGPoint) -> Void)?
+    var onImageReplaced: ((URL) -> Void)?
+    var onStatusChanged: ((String) -> Void)?
 
     private(set) var annotations: [Annotation] = []
     private var draft: Annotation?
     private var dragStart: CGPoint?
+    private var imageSnapshots: [(CGImage, [Annotation])] = []
     private let canvasInset = NSSize(width: 24, height: 18)
 
     init(image: CGImage) {
@@ -41,6 +47,7 @@ final class AnnotationCanvasView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.backgroundColor = NSColor(hex: 0x070A0F).cgColor
+        registerForDraggedTypes([.fileURL])
     }
 
     required init?(coder: NSCoder) { nil }
@@ -94,7 +101,11 @@ final class AnnotationCanvasView: NSView {
             Self.draw(annotation, in: rect)
         }
         if let draft {
-            Self.draw(draft, in: rect)
+            if tool == .crop || tool == .mosaic, case .rectangle(let r) = draft.shape {
+                drawSelectionOverlay(Self.viewRect(r, in: rect), mosaic: tool == .mosaic)
+            } else {
+                Self.draw(draft, in: rect)
+            }
         }
 
         NSColor.white.withAlphaComponent(0.12).setStroke()
@@ -124,6 +135,8 @@ final class AnnotationCanvasView: NSView {
             draft = Annotation(shape: .rectangle(CGRect(origin: p, size: .zero)), color: color, width: width)
         case .ellipse:
             draft = Annotation(shape: .ellipse(CGRect(origin: p, size: .zero)), color: color, width: width)
+        case .crop, .mosaic:
+            draft = Annotation(shape: .rectangle(CGRect(origin: p, size: .zero)), color: color, width: width)
         case .text:
             break
         }
@@ -159,10 +172,225 @@ final class AnnotationCanvasView: NSView {
             needsDisplay = true
         }
         guard let draft else { return }
+        if (tool == .crop || tool == .mosaic), case .rectangle(let rect) = draft.shape {
+            guard rect.width > 0.025, rect.height > 0.025 else {
+                onStatusChanged?(tool == .crop ? "裁剪区域太小" : "马赛克区域太小")
+                return
+            }
+            if tool == .crop {
+                applyCrop(rect)
+            } else {
+                applyMosaic(rect)
+            }
+            return
+        }
         if isMeaningful(draft) {
             annotations.append(draft)
             onChanged?()
         }
+    }
+
+    var canUndo: Bool { !annotations.isEmpty || !imageSnapshots.isEmpty }
+
+    private func imageURL(from info: NSDraggingInfo) -> URL? {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] else { return nil }
+        return urls.first
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let url = imageURL(from: sender),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              CGImageSourceGetCount(source) > 0 else { return [] }
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        imageURL(from: sender) == nil ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = imageURL(from: sender),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let dropped = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return false }
+        pushSnapshot()
+        image = dropped
+        annotations = []
+        onImageReplaced?(url)
+        onStatusChanged?("已载入 \(url.lastPathComponent)")
+        onChanged?()
+        needsDisplay = true
+        return true
+    }
+    var hasEdits: Bool { !annotations.isEmpty || !imageSnapshots.isEmpty }
+
+    func undo() {
+        if let snapshot = imageSnapshots.popLast() {
+            image = snapshot.0
+            annotations = snapshot.1
+            onChanged?()
+            needsDisplay = true
+            return
+        }
+        guard !annotations.isEmpty else { return }
+        annotations.removeLast()
+        onChanged?()
+        needsDisplay = true
+    }
+
+    private static func viewRect(_ normalized: CGRect, in rect: NSRect) -> NSRect {
+        NSRect(
+            x: rect.minX + normalized.minX * rect.width,
+            y: rect.minY + normalized.minY * rect.height,
+            width: normalized.width * rect.width,
+            height: normalized.height * rect.height
+        )
+    }
+
+    private func drawSelectionOverlay(_ selected: NSRect, mosaic: Bool) {
+        guard selected.width > 0.5, selected.height > 0.5 else { return }
+        NSColor.black.withAlphaComponent(0.48).setFill()
+        let shade = NSBezierPath(rect: bounds)
+        shade.append(NSBezierPath(rect: selected))
+        shade.windingRule = .evenOdd
+        shade.fill()
+
+        if mosaic {
+            NSColor.white.withAlphaComponent(0.14).setFill()
+            let block: CGFloat = 9
+            var y = selected.minY
+            while y < selected.maxY {
+                var x = selected.minX
+                while x < selected.maxX {
+                    if Int((x - selected.minX) / block + (y - selected.minY) / block) % 2 == 0 {
+                        NSBezierPath(rect: NSRect(x: x, y: y, width: min(block, selected.maxX - x), height: min(block, selected.maxY - y))).fill()
+                    }
+                    x += block
+                }
+                y += block
+            }
+        }
+
+        Palette.accent.setStroke()
+        let border = NSBezierPath(rect: selected)
+        border.lineWidth = 1.4
+        let pattern: [CGFloat] = [5, 3]
+        border.setLineDash(pattern, count: pattern.count, phase: 0)
+        border.stroke()
+    }
+
+    private func pushSnapshot() {
+        imageSnapshots.append((image, annotations))
+        if imageSnapshots.count > 10 { imageSnapshots.removeFirst() }
+    }
+
+    private func applyCrop(_ normalizedRect: CGRect) {
+        let sourceWidth = CGFloat(image.width)
+        let sourceHeight = CGFloat(image.height)
+        let pixelRect = CGRect(
+            x: floor(normalizedRect.minX * sourceWidth),
+            y: floor((1 - normalizedRect.maxY) * sourceHeight),
+            width: max(1, floor(normalizedRect.width * sourceWidth)),
+            height: max(1, floor(normalizedRect.height * sourceHeight))
+        ).integral
+        guard pixelRect.width >= 8, pixelRect.height >= 8,
+              let cropped = image.cropping(to: pixelRect) else { return }
+        pushSnapshot()
+        image = cropped
+
+        let map: (CGPoint) -> CGPoint = { point in
+            CGPoint(
+                x: (point.x - normalizedRect.minX) / normalizedRect.width,
+                y: (point.y - normalizedRect.minY) / normalizedRect.height
+            )
+        }
+        annotations = annotations.compactMap { annotation in
+            switch annotation.shape {
+            case .path(let points):
+                let mapped = points.map(map)
+                return Annotation(shape: .path(mapped), color: annotation.color, width: annotation.width)
+            case .arrow(let start, let end):
+                return Annotation(shape: .arrow(map(start), map(end)), color: annotation.color, width: annotation.width)
+            case .rectangle(let rect):
+                let a = map(rect.origin)
+                let b = map(CGPoint(x: rect.maxX, y: rect.maxY))
+                let mapped = Self.normalizedRect(a, b)
+                return mapped.width > 0.01 && mapped.height > 0.01
+                    ? Annotation(shape: .rectangle(mapped), color: annotation.color, width: annotation.width)
+                    : nil
+            case .ellipse(let rect):
+                let a = map(rect.origin)
+                let b = map(CGPoint(x: rect.maxX, y: rect.maxY))
+                let mapped = Self.normalizedRect(a, b)
+                return mapped.width > 0.01 && mapped.height > 0.01
+                    ? Annotation(shape: .ellipse(mapped), color: annotation.color, width: annotation.width)
+                    : nil
+            case .text(let point, let text):
+                return Annotation(shape: .text(map(point), text), color: annotation.color, width: annotation.width)
+            }
+        }
+        onStatusChanged?("已裁剪为 \(Int(cropped.width)) × \(Int(cropped.height)) px")
+        onChanged?()
+        needsDisplay = true
+    }
+
+    private func applyMosaic(_ normalizedRect: CGRect) {
+        let width = image.width
+        let height = image.height
+        guard width > 0, height > 0,
+              let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return }
+        context.interpolationQuality = .none
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let pixelRect = CGRect(
+            x: floor(normalizedRect.minX * CGFloat(width)),
+            y: floor((1 - normalizedRect.maxY) * CGFloat(height)),
+            width: max(2, floor(normalizedRect.width * CGFloat(width))),
+            height: max(2, floor(normalizedRect.height * CGFloat(height)))
+        ).integral
+        guard pixelRect.width >= 2, pixelRect.height >= 2,
+              let source = image.cropping(to: pixelRect) else { return }
+
+        let block = max(8, min(18, Int(pixelRect.width / 18)))
+        let smallWidth = max(1, Int(pixelRect.width) / block)
+        let smallHeight = max(1, Int(pixelRect.height) / block)
+        guard let smallContext = CGContext(
+            data: nil,
+            width: smallWidth,
+            height: smallHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return }
+        smallContext.interpolationQuality = .none
+        smallContext.draw(source, in: CGRect(x: 0, y: 0, width: smallWidth, height: smallHeight))
+        guard let smallImage = smallContext.makeImage() else { return }
+
+        // CGImage.cropping uses top-left coordinates, while CGContext draws
+        // from the bottom-left. Convert the selected vertical band back.
+        let drawRect = CGRect(
+            x: pixelRect.minX,
+            y: normalizedRect.minY * CGFloat(height),
+            width: pixelRect.width,
+            height: pixelRect.height
+        )
+        context.interpolationQuality = .none
+        context.draw(smallImage, in: drawRect)
+        guard let output = context.makeImage() else { return }
+        pushSnapshot()
+        image = output
+        onStatusChanged?("已添加马赛克")
+        onChanged?()
+        needsDisplay = true
     }
 
     private func isMeaningful(_ annotation: Annotation) -> Bool {
@@ -182,13 +410,6 @@ final class AnnotationCanvasView: NSView {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return }
         annotations.append(Annotation(shape: .text(point, value), color: color, width: width))
-        onChanged?()
-        needsDisplay = true
-    }
-
-    func undo() {
-        guard !annotations.isEmpty else { return }
-        annotations.removeLast()
         onChanged?()
         needsDisplay = true
     }
@@ -338,14 +559,14 @@ final class AnnotationCanvasView: NSView {
 // MARK: - Editor
 
 final class AnnotationEditorController: NSObject, NSWindowDelegate {
-    private let sourceURL: URL
+    private var sourceURL: URL
     private let sourceImage: CGImage
-    private let scale: CGFloat
+    private var scale: CGFloat
     private let panel: AnnotationPanel
     private let canvas: AnnotationCanvasView
     private let toolbar = NSView()
     private let subtitleLabel = NSTextField(labelWithString: "")
-    private let toolControl = NSSegmentedControl(labels: ["画笔", "箭头", "矩形", "椭圆", "文字"], trackingMode: .selectOne, target: nil, action: nil)
+    private let toolControl = NSSegmentedControl(labels: ["画笔", "箭头", "矩形", "椭圆", "文字", "裁剪", "马赛克"], trackingMode: .selectOne, target: nil, action: nil)
     private let widthControl = NSSegmentedControl(labels: ["细", "中", "粗"], trackingMode: .selectOne, target: nil, action: nil)
     private let undoButton = GlintIconButton(symbol: "arrow.uturn.backward", size: 12)
     private let clearButton = GlintIconButton(symbol: "trash", size: 12)
@@ -406,6 +627,22 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
                 self.saveTapped()
                 return nil
             }
+            if !(self.panel.firstResponder is NSTextView),
+               event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+                let key = event.charactersIgnoringModifiers?.lowercased()
+                if key == "p" { self.selectTool(0); return nil }
+                if key == "a" { self.selectTool(1); return nil }
+                if key == "r" { self.selectTool(2); return nil }
+                if key == "e" { self.selectTool(3); return nil }
+                if key == "t" { self.selectTool(4); return nil }
+                if key == "c" { self.selectTool(5); return nil }
+                if key == "m" { self.selectTool(6); return nil }
+                switch event.keyCode {
+                case 8: self.selectTool(5); return nil
+                case 46: self.selectTool(6); return nil
+                default: break
+                }
+            }
             return event
         }
     }
@@ -447,6 +684,8 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
 
         canvas.onChanged = { [weak self] in self?.refreshActions() }
         canvas.onTextRequested = { [weak self] point in self?.requestText(at: point) }
+        canvas.onImageReplaced = { [weak self] url in self?.imageReplaced(url) }
+        canvas.onStatusChanged = { [weak self] message in self?.showStatus(message, success: true) }
         root.addSubview(canvas)
 
         toolbar.wantsLayer = true
@@ -555,7 +794,7 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
 
             toolControl.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 18),
             toolControl.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            toolControl.widthAnchor.constraint(equalToConstant: 270),
+            toolControl.widthAnchor.constraint(equalToConstant: 356),
             toolControl.heightAnchor.constraint(equalToConstant: 26),
 
             swatchStack.leadingAnchor.constraint(equalTo: toolControl.trailingAnchor, constant: 12),
@@ -604,14 +843,28 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
     }
 
     private func refreshActions() {
-        undoButton.isEnabled = canvas.hasAnnotations
-        undoButton.alphaValue = canvas.hasAnnotations ? 1 : 0.4
-        clearButton.isEnabled = canvas.hasAnnotations
-        clearButton.alphaValue = canvas.hasAnnotations ? 1 : 0.4
-        saveButton.isEnabled = canvas.hasAnnotations
-        saveButton.alphaValue = canvas.hasAnnotations ? 1 : 0.55
-        copyButton.isEnabled = canvas.hasAnnotations
-        copyButton.alphaValue = canvas.hasAnnotations ? 1 : 0.55
+        undoButton.isEnabled = canvas.canUndo
+        undoButton.alphaValue = canvas.canUndo ? 1 : 0.4
+        clearButton.isEnabled = !canvas.annotations.isEmpty
+        clearButton.alphaValue = !canvas.annotations.isEmpty ? 1 : 0.4
+        saveButton.isEnabled = true
+        saveButton.alphaValue = 1
+        copyButton.isEnabled = true
+        copyButton.alphaValue = 1
+    }
+
+    private func imageReplaced(_ url: URL) {
+        sourceURL = url
+        scale = 1
+        subtitleLabel.stringValue = "\(url.lastPathComponent) · 拖入新图片 · 保存为副本"
+        savedURL = nil
+        revealButton.isHidden = true
+        refreshActions()
+    }
+
+    private func showStatus(_ message: String, success: Bool) {
+        statusLabel.stringValue = message
+        statusLabel.textColor = success ? Palette.success : Palette.danger
     }
 
     private func requestText(at point: CGPoint) {
@@ -629,9 +882,24 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
         }
     }
 
+    private func selectTool(_ index: Int) {
+        toolControl.selectedSegment = index
+        toolChanged()
+    }
+
     @objc private func toolChanged() {
         guard let tool = AnnotationTool(rawValue: toolControl.selectedSegment) else { return }
         canvas.tool = tool
+        switch tool {
+        case .crop:
+            statusLabel.stringValue = "拖拽选择裁剪区域，松开后立即裁剪"
+        case .mosaic:
+            statusLabel.stringValue = "拖拽选择马赛克区域，松开后立即应用"
+        case .text:
+            statusLabel.stringValue = "点击图片位置，输入文字"
+        default:
+            statusLabel.stringValue = "选择工具后，在图片上拖拽绘制"
+        }
         windowFirstResponder()
     }
 
@@ -662,13 +930,11 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
             try CaptureLibrary.shared.writePNG(rendered, scale: scale, to: destination)
             NotificationCenter.default.post(name: CaptureLibrary.libraryChanged, object: nil)
             savedURL = destination
-            statusLabel.stringValue = "已保存副本：\(destination.lastPathComponent)"
-            statusLabel.textColor = Palette.success
+            showStatus("已保存副本：\(destination.lastPathComponent)", success: true)
             revealButton.isHidden = false
             flash(saveButton)
         } catch {
-            statusLabel.stringValue = "保存失败：\(error.localizedDescription)"
-            statusLabel.textColor = Palette.danger
+            showStatus("保存失败：\(error.localizedDescription)", success: false)
         }
     }
 
@@ -676,8 +942,7 @@ final class AnnotationEditorController: NSObject, NSWindowDelegate {
         guard let rendered = canvas.renderFullResolution() else { return }
         let captured = CapturedImage(cgImage: rendered, scale: scale, label: "批注截图")
         if CaptureLibrary.shared.copyToPasteboard(captured) {
-            statusLabel.stringValue = "批注图片已复制到剪贴板"
-            statusLabel.textColor = Palette.success
+            showStatus("批注图片已复制到剪贴板", success: true)
             flash(copyButton)
         }
     }

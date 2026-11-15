@@ -8,24 +8,24 @@
 
   const FALLBACK_RELEASES = [
     {
-      tag_name: "v1.1.2",
-      name: "Glint 1.1.2 — 更新检查",
+      tag_name: "v1.2.0",
+      name: "Glint 1.2.0 — 多显示器、快捷键、批注与下载器",
       published_at: "2026-11-15T11:19:00Z",
-      html_url: `https://github.com/${REPO}/releases/tag/v1.1.2`,
+      html_url: `https://github.com/${REPO}/releases/tag/v1.2.0`,
       prerelease: false,
       draft: false,
       assets: [
         {
-          name: "Glint-1.1.2.dmg",
-          size: 1097187,
-          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.2/Glint-1.1.2.dmg`,
-          download_count: 1
+          name: "Glint-1.2.0.dmg",
+          size: 1196406,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.2.0/Glint-1.2.0.dmg`,
+          download_count: 0
         },
         {
-          name: "Glint-1.1.2.zip",
-          size: 596697,
-          browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.2/Glint-1.1.2.zip`,
-          download_count: 1
+          name: "Glint-1.2.0.zip",
+          size: 687701,
+          browser_download_url: `https://github.com/${REPO}/releases/download/v1.2.0/Glint-1.2.0.zip`,
+          download_count: 0
         }
       ]
     },
@@ -41,13 +41,13 @@
           name: "Glint-1.1.1.dmg",
           size: 1089734,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.dmg`,
-          download_count: 1
+          download_count: 0
         },
         {
           name: "Glint-1.1.1.zip",
           size: 589721,
           browser_download_url: `https://github.com/${REPO}/releases/download/v1.1.1/Glint-1.1.1.zip`,
-          download_count: 1
+          download_count: 0
         }
       ]
     },
@@ -63,13 +63,13 @@
           name: "Glint-1.0.dmg",
           size: 957551,
           browser_download_url: `https://github.com/${REPO}/releases/download/1.0/Glint-1.0.dmg`,
-          download_count: 1
+          download_count: 0
         },
         {
           name: "Glint-1.0.zip",
           size: 3752293,
           browser_download_url: `https://github.com/${REPO}/releases/download/1.0/Glint-1.0.zip`,
-          download_count: 1
+          download_count: 0
         }
       ]
     }
@@ -112,7 +112,7 @@
       "feature.capture.title": "Four ways to capture",
       "feature.capture.desc": "Area, window, full-screen and scrolling. Live pixel dimensions while selecting; release to finish.",
       "feature.annotate.title": "Annotate after saving",
-      "feature.annotate.desc": "Pen, arrow, rectangle, ellipse and text. Six colors, three widths, saved as a copy that never overwrites the original.",
+      "feature.annotate.desc": "Pen, arrow, rectangle, ellipse, text, crop and mosaic. Drop in an image, then save a copy that never overwrites the original.",
       "feature.ocr.title": "On-device OCR",
       "feature.ocr.desc": "Apple Vision recognizes Simplified Chinese and English. Copy all text or save TXT. Screenshots never leave your Mac.",
       "feature.record.title": "Recording that pauses",
@@ -120,7 +120,13 @@
       "feature.folders.title": "Folders you choose",
       "feature.folders.desc": "Change the screenshot and recording directories whenever you want. Changes apply to new files immediately.",
       "feature.hotkeys.title": "Menu bar & shortcuts",
-      "feature.hotkeys.desc": "Stays in the menu bar after closing the window. Carbon hotkeys — no Accessibility or Input Monitoring permission.",
+      "feature.hotkeys.desc": "Stays in the menu bar after closing the window. All six carbon hotkeys are rebindable — no Accessibility or Input Monitoring permission.",
+      "feature.display.title": "Multi-display picker",
+      "feature.display.desc": "Full-screen capture and display recording list every screen with resolution, Retina and mouse position. Click to choose.",
+      "feature.downloader.title": "Multi-thread downloader",
+      "feature.downloader.desc": "Download any HTTP/HTTPS file with 1–8 threads, progress, speed, cancel and Reveal in Finder — built in.",
+      "feature.updates.title": "Notes & file checks",
+      "feature.updates.desc": "The update sheet shows release notes and compares local size and SHA-256, so only files that really changed are listed.",
       "workflow.kicker": "THE FLOW",
       "workflow.title": "Capture. Refine. Share.",
       "workflow.lead": "No app switching. Glint hands the result straight back to you.",
@@ -146,17 +152,17 @@
       "gallery.installer.desc": "Open the DMG and drop Glint into Applications",
       "gallery.installer.alt": "Glint DMG installer",
       "news.kicker": "LATEST RELEASE",
-      "news.title": "1.1 makes screenshots more useful.",
+      "news.title": "1.2 makes the workflow yours.",
       "news.date": "November 2026",
-      "news.download": "Get 1.1.2",
-      "news.item1.title": "Annotation after saving",
-      "news.item1.desc": "Pen, arrows, shapes and text — saved as a copy.",
-      "news.item2.title": "OCR",
-      "news.item2.desc": "Chinese and English text, copied or exported to TXT.",
-      "news.item3.title": "Scrolling capture",
-      "news.item3.desc": "Detects overlap and stitches long pages automatically.",
-      "news.item4.title": "Pause & microphone",
-      "news.item4.desc": "Pause mid-recording; choose system audio, mic or both.",
+      "news.download": "Get 1.2.0",
+      "news.item1.title": "Displays & shortcuts",
+      "news.item1.desc": "Pick a display, rebind every capture hotkey.",
+      "news.item2.title": "Drag, crop, mosaic",
+      "news.item2.desc": "Drop an image into annotation, crop it, pixelate a region.",
+      "news.item3.title": "Multi-thread downloader",
+      "news.item3.desc": "Any HTTP link, 1–8 threads, progress and cancel.",
+      "news.item4.title": "Smarter updates",
+      "news.item4.desc": "Read release notes and see which files really need updating.",
       "cta.kicker": "GET STARTED",
       "cta.title": "Put Glint in Applications.",
       "cta.lead": "Download the latest build, drag it into Applications, grant screen recording access, then press ⌃⌥1 for your first shot.",
@@ -194,7 +200,7 @@
       "dl.releaseNotes": "Release notes →",
       "dl.installTitle": "Install in three steps",
       "dl.step1.title": "Open the DMG",
-      "dl.step1.desc": "Download and open Glint-1.1.2.dmg.",
+      "dl.step1.desc": "Download and open Glint-1.2.0.dmg.",
       "dl.step2.title": "Drop into Applications",
       "dl.step2.desc": "Drag Glint into Applications, then eject the disk image.",
       "dl.step3.title": "Allow and begin",
@@ -260,7 +266,7 @@
       "feature.capture.title": "四种截取方式",
       "feature.capture.desc": "区域、窗口、全屏和滚动长图。框选时实时显示像素尺寸，松开即完成。",
       "feature.annotate.title": "保存后批注",
-      "feature.annotate.desc": "画笔、箭头、矩形、椭圆和文字。六种颜色、三种线宽，保存为不覆盖原图的副本。",
+      "feature.annotate.desc": "画笔、箭头、矩形、椭圆、文字、裁剪与马赛克。可拖入图片替换画布，保存为不覆盖原图的副本。",
       "feature.ocr.title": "本地 OCR",
       "feature.ocr.desc": "使用 Apple Vision 识别简体中文与英文，复制全文或保存 TXT。截图不会离开本机。",
       "feature.record.title": "能暂停的录屏",
@@ -268,7 +274,13 @@
       "feature.folders.title": "你的保存目录",
       "feature.folders.desc": "截图和录屏目录都可以自由更改；修改立即生效，只影响之后生成的文件。",
       "feature.hotkeys.title": "菜单栏与快捷键",
-      "feature.hotkeys.desc": "关闭主窗口后仍在菜单栏待命。Carbon 全局快捷键，不申请辅助功能或输入监控权限。",
+      "feature.hotkeys.desc": "关闭主窗口后仍在菜单栏待命。六项全局快捷键都可自定义，不申请辅助功能或输入监控权限。",
+      "feature.display.title": "多显示器选择",
+      "feature.display.desc": "全屏截图和整屏录屏先列出所有显示器，显示分辨率、Retina 与鼠标位置，点击即选。",
+      "feature.downloader.title": "多线程下载器",
+      "feature.downloader.desc": "下载任意 HTTP/HTTPS 文件，1–8 线程、进度与速度、取消和 Finder 定位，全部内置。",
+      "feature.updates.title": "更新说明与文件判断",
+      "feature.updates.desc": "更新弹窗显示 Release 说明，并自动比对本地文件大小与 SHA-256，只提示真正需要的更新。",
       "workflow.kicker": "工作流",
       "workflow.title": "截取、整理、分享。",
       "workflow.lead": "不需要在多个应用之间来回切换。Glint 把结果直接交到你手里。",
@@ -294,17 +306,17 @@
       "gallery.installer.desc": "打开 DMG，把 Glint 拖进 Applications",
       "gallery.installer.alt": "Glint DMG 安装界面",
       "news.kicker": "最新版本",
-      "news.title": "1.1 让截图更有用。",
+      "news.title": "1.2 让工作流更顺手。",
       "news.date": "2026 年 11 月",
-      "news.download": "获取 1.1.2",
-      "news.item1.title": "保存后批注",
-      "news.item1.desc": "画笔、箭头、形状与文字，保存为副本。",
-      "news.item2.title": "OCR 文字识别",
-      "news.item2.desc": "中英文识别，复制全文或导出 TXT。",
-      "news.item3.title": "滚动截图",
-      "news.item3.desc": "自动检测重叠，拼接长页面。",
-      "news.item4.title": "暂停续录与麦克风",
-      "news.item4.desc": "录制中暂停，声音来源可选系统/麦克风。",
+      "news.download": "获取 1.2.0",
+      "news.item1.title": "多显示器与快捷键",
+      "news.item1.desc": "选择显示器，重新绑定每一个截图快捷键。",
+      "news.item2.title": "拖入、裁剪与马赛克",
+      "news.item2.desc": "把图片拖进批注，裁剪或对区域打码。",
+      "news.item3.title": "多线程下载器",
+      "news.item3.desc": "任意 HTTP 链接，1–8 线程，进度与取消。",
+      "news.item4.title": "更聪明的更新",
+      "news.item4.desc": "显示更新内容，只列出真正需要更新的文件。",
       "cta.kicker": "开始使用",
       "cta.title": "把 Glint 放进 Applications。",
       "cta.lead": "下载最新版本，拖入 Applications，授权屏幕录制，然后按 ⌃⌥1 截下第一张图。",
@@ -342,7 +354,7 @@
       "dl.releaseNotes": "更新说明 →",
       "dl.installTitle": "安装只需要三步",
       "dl.step1.title": "打开 DMG",
-      "dl.step1.desc": "下载并打开 Glint-1.1.2.dmg。",
+      "dl.step1.desc": "下载并打开 Glint-1.2.0.dmg。",
       "dl.step2.title": "拖进 Applications",
       "dl.step2.desc": "把 Glint 拖到 Applications 文件夹，然后推出磁盘映像。",
       "dl.step3.title": "授权并开始",
@@ -518,10 +530,10 @@
   function releaseTitle(release) {
     const tag = String(release.tag_name || "").toLowerCase();
     if (lang === "en") {
-      if (tag === "v1.1.2") return "Glint 1.1.2 — Update Endpoint";
+      if (tag === "v1.2.0") return "Glint 1.2.0 — Displays, Shortcuts, Annotation & Downloader";
       if (tag === "1.0") return "Glint 1.0";
     }
-    if (tag === "v1.1.2") return "Glint 1.1.2 — 更新检查";
+    if (tag === "v1.2.0") return "Glint 1.2.0 — 多显示器、快捷键、批注与下载器";
     if (tag === "v1.1.1") return "Glint 1.1.1 — 批注、OCR、滚动截图与麦克风";
     return release.name || `Glint ${release.tag_name || ""}`;
   }

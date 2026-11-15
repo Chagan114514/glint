@@ -150,7 +150,7 @@ final class RecordChooserController: NSObject, NSWindowDelegate {
         audioPopup.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(audioPopup)
 
-        let footer = makeLabel("开始后，按 ⌃⌥4 或点击悬浮条上的「停止」结束录制", size: 9.5, weight: .regular, color: Palette.textTertiary, alignment: .center)
+        let footer = makeLabel("开始后，按 \(HotKeyStore.label(for: .record)) 或点击悬浮条上的「停止」结束录制", size: 9.5, weight: .regular, color: Palette.textTertiary, alignment: .center)
         root.addSubview(footer)
 
         NSLayoutConstraint.activate([

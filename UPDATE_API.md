@@ -5,7 +5,7 @@ Glint 启动时（以及用户点击「检查更新」时）会向更新服务�
 ## 请求
 
 ```http
-GET /api/glint/updates?app=glint&platform=macos&version=1.1.2&current_version=1.1.2&build=5
+GET /api/glint/updates?app=glint&platform=macos&version=1.2.0&current_version=1.2.0&build=6
 Accept: application/json
 ```
 
@@ -15,8 +15,8 @@ Accept: application/json
 | --- | --- |
 | `app` | `glint` |
 | `platform` | `macos` |
-| `version` / `current_version` | 当前版本，如 `1.1.2` |
-| `build` | 当前构建号，如 `5` |
+| `version` / `current_version` | 当前版本，如 `1.2.0` |
+| `build` | 当前构建号，如 `6` |
 
 默认地址：
 
@@ -34,9 +34,9 @@ GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/updates ./Glint.app/Contents/Ma
 
 ```json
 {
-  "latest_version": "1.1.3",
-  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v1.1.3",
-  "patch_url": "https://github.com/Chagan114514/glint/releases/download/v1.1.2/Glint-1.1.2-to-1.1.3.patch.zip",
+  "latest_version": "1.2.0",
+  "release_url": "https://github.com/Chagan114514/glint/releases/tag/v1.2.0",
+  "patch_url": "https://github.com/Chagan114514/glint/releases/download/v1.2.0/Glint-1.1.2-to-1.2.0.patch.zip",
   "major": false,
   "files": [
     { "path": "Contents/Resources/..." },
@@ -47,7 +47,8 @@ GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/updates ./Glint.app/Contents/Ma
 ```
 
 - `patch_url` 应指向**只包含变化文件**的压缩包，而不是完整 DMG。
-- `files` 可选，用来告诉用户本次需要补充几个文件。
+- `files` 可选；每项可带 `path`、`sha256`、`size` 和 `url`。客户端会对比本地 bundle，只列出真正缺失或哈希不一致的文件。
+- 不支持 Range 的下载链接会回退为单线程流式下载。
 - 客户端只负责提示并打开 `patch_url`，不会静默改写 App，避免未签名更新破坏应用。
 
 ## 重大更新响应
@@ -77,3 +78,4 @@ GLINT_UPDATE_URL=http://127.0.0.1:8788/api/glint/updates ./Glint.app/Contents/Ma
 - 设置 → 软件更新 → 检查更新 可随时手动检查，即使自动检查已关闭。
 - 更新服务器不可达时，客户端会回退到 GitHub 最新 Release（跟随 `releases/latest` 跳转，不调用限流的 API）。若回退也失败，自动检查静默失败，不打扰用户；手动检查会显示错误。
 - 回退结果没有增量清单，只能提示下载完整安装包。
+- 更新弹窗会从 GitHub Release 的 Atom feed 读取该版本更新说明；没有说明时显示前往 Release 的提示。

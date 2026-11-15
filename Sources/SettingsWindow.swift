@@ -11,6 +11,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let updateSwitch = NSSwitch()
     private let updateStatus = NSTextField(labelWithString: "")
     private let checkUpdateButton = GlintButton(title: "检查更新", style: .secondary)
+    private let shortcutButton = GlintButton(title: "快捷键…", style: .secondary)
+    private var shortcutSettings: ShortcutSettingsController?
     private let onClose: (() -> Void)?
     private var devices: [AVCaptureDevice] = []
     private var closed = false
@@ -78,6 +80,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         root.addSubview(subtitle)
         let close = GlintIconButton(symbol: "xmark", size: 12, target: self, action: #selector(closeTapped))
         root.addSubview(close)
+        shortcutButton.target = self
+        shortcutButton.action = #selector(shortcutTapped)
+        root.addSubview(shortcutButton)
 
         let filesTitle = makeLabel("文件保存位置", size: 12, weight: .semibold, color: Palette.text.withAlphaComponent(0.86))
         root.addSubview(filesTitle)
@@ -199,6 +204,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             close.topAnchor.constraint(equalTo: root.topAnchor, constant: 17),
             close.widthAnchor.constraint(equalToConstant: 28),
             close.heightAnchor.constraint(equalToConstant: 28),
+            shortcutButton.trailingAnchor.constraint(equalTo: close.leadingAnchor, constant: -8),
+            shortcutButton.centerYAnchor.constraint(equalTo: close.centerYAnchor),
+            shortcutButton.widthAnchor.constraint(equalToConstant: 88),
+            shortcutButton.heightAnchor.constraint(equalToConstant: 26),
 
             filesTitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 26),
             filesTitle.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 24),
@@ -419,6 +428,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         updateStatus.stringValue = enabled
             ? "启动时会自动检查更新"
             : "已关闭自动检查，仍可手动检查"
+    }
+
+    @objc private func shortcutTapped() {
+        if let shortcutSettings {
+            shortcutSettings.show()
+            return
+        }
+        let controller = ShortcutSettingsController()
+        shortcutSettings = controller
+        controller.show()
     }
 
     @objc private func checkUpdateTapped() {

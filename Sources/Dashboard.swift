@@ -8,6 +8,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private let recentStack = NSStackView()
     private var recentHeightConstraint: NSLayoutConstraint!
     private var contentStack: NSStackView!
+    private var actionCards: [HotKeyAction: ActionCardView] = [:]
     private var heightUpdateScheduled = false
 
     var onArea: (() -> Void)?
@@ -33,6 +34,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         buildUI()
         NotificationCenter.default.addObserver(self, selector: #selector(libraryChanged), name: CaptureLibrary.libraryChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(libraryChanged), name: CaptureLibrary.settingsChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(hotKeysChanged), name: HotKeyStore.changed, object: nil)
         refreshPermission()
         reloadRecent()
     }
@@ -62,6 +64,14 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     }
 
     func refreshRecentAndLibrary() {
+        reloadRecent()
+    }
+
+    private func refreshShortcuts() {
+        for (action, card) in actionCards {
+            card.updateShortcut(HotKeyStore.label(for: action))
+        }
+        headerView.refreshShortcutBadge()
         reloadRecent()
     }
 
@@ -144,7 +154,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         view.translatesAutoresizingMaskIntoConstraints = false
         let title = makeLabel("快速开始", size: 13, weight: .semibold, color: Palette.text.withAlphaComponent(0.88))
         view.addSubview(title)
-        let hint = makeLabel("全局快捷键 ⌃⌥1 — ⌃⌥6", size: 10.5, weight: .medium, color: Palette.textTertiary)
+        let hint = makeLabel("全局快捷键 · 可在设置中自定义", size: 10.5, weight: .medium, color: Palette.textTertiary)
         view.addSubview(hint)
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -160,7 +170,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             title: "区域截图",
             subtitle: "拖拽框选任意区域",
             symbol: "viewfinder",
-            shortcut: "⌃⌥1",
+            shortcut: HotKeyStore.label(for: .area),
             accent: Palette.accent
         )
         area.onClick = { [weak self] in self?.onArea?() }
@@ -169,16 +179,16 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             title: "窗口截图",
             subtitle: "选择一个应用窗口",
             symbol: "macwindow",
-            shortcut: "⌃⌥2",
+            shortcut: HotKeyStore.label(for: .window),
             accent: Palette.teal
         )
         windowCard.onClick = { [weak self] in self?.onWindow?() }
 
         let full = ActionCardView(
             title: "全屏截图",
-            subtitle: "截取当前整个屏幕",
+            subtitle: "选择显示器截取",
             symbol: "display",
-            shortcut: "⌃⌥3",
+            shortcut: HotKeyStore.label(for: .fullScreen),
             accent: NSColor(hex: 0xB8A4FF)
         )
         full.onClick = { [weak self] in self?.onFullScreen?() }
@@ -187,7 +197,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             title: "滚动截图",
             subtitle: "自动拼接长页面",
             symbol: "scroll",
-            shortcut: "⌃⌥6",
+            shortcut: HotKeyStore.label(for: .scroll),
             accent: NSColor(hex: 0x62A8FF)
         )
         scroll.onClick = { [weak self] in self?.onScrollCapture?() }
@@ -196,10 +206,16 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             title: "屏幕录制",
             subtitle: "全屏、区域或窗口",
             symbol: "record.circle",
-            shortcut: "⌃⌥4",
+            shortcut: HotKeyStore.label(for: .record),
             accent: Palette.danger
         )
         record.onClick = { [weak self] in self?.onRecord?() }
+
+        actionCards[.area] = area
+        actionCards[.window] = windowCard
+        actionCards[.fullScreen] = full
+        actionCards[.scroll] = scroll
+        actionCards[.record] = record
 
         let row = NSStackView(views: [area, windowCard, full, scroll, record])
         row.orientation = .horizontal
@@ -352,6 +368,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         reloadRecent()
     }
 
+    @objc private func hotKeysChanged() {
+        refreshShortcuts()
+    }
+
     @objc private func openImages() {
         onOpenImageFolder?()
     }
@@ -439,6 +459,10 @@ private final class DashboardHeaderView: NSView {
         permissionPill.granted = granted
     }
 
+    func refreshShortcutBadge() {
+        shortcutBadge.needsDisplay = true
+    }
+
     @objc private func settingsTapped() {
         onSettingsTapped?()
     }
@@ -459,19 +483,6 @@ private final class PermissionPill: NSControl {
     }
 
     required init?(coder: NSCoder) { nil }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil)
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
     override func mouseEntered(with event: NSEvent) {
         hovered = true
         needsDisplay = true
@@ -533,7 +544,8 @@ private final class ShortcutBadge: NSView {
             .tinted(with: Palette.textTertiary)
         icon?.draw(in: NSRect(x: 12, y: bounds.midY - 6, width: 15, height: 12), from: .zero, operation: .sourceOver, fraction: 1)
 
-        let text = "⌃⌥ 1–6"
+        let allDefault = HotKeyAction.allCases.allSatisfy { HotKeyStore.combo(for: $0) == $0.defaultCombo }
+        let text = allDefault ? "⌃⌥ 1–6" : "已自定义"
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold),
             .foregroundColor: Palette.textSecondary,
@@ -549,7 +561,7 @@ private final class ActionCardView: NSControl {
     private let title: String
     private let subtitle: String
     private let symbol: String
-    private let shortcut: String
+    private var shortcut: String
     private let accent: NSColor
     private var hovered = false
     private var pressed = false
@@ -572,6 +584,12 @@ private final class ActionCardView: NSControl {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    func updateShortcut(_ value: String) {
+        guard value != shortcut else { return }
+        shortcut = value
+        needsDisplay = true
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -904,7 +922,7 @@ private final class RecentEmptyView: NSView {
         let title = makeLabel("还没有截图或录屏", size: 13, weight: .semibold, color: Palette.text.withAlphaComponent(0.80))
         addSubview(title)
 
-        let subtitle = makeLabel("按下 ⌃⌥1 框选，或点击这里开始第一次截图", size: 10.5, weight: .regular, color: Palette.textTertiary)
+        let subtitle = makeLabel("按下 \(HotKeyStore.label(for: .area)) 框选，或点击这里开始第一次截图", size: 10.5, weight: .regular, color: Palette.textTertiary)
         addSubview(subtitle)
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(clicked))

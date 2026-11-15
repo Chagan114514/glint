@@ -9,7 +9,7 @@ symlinks = {"Applications": "/Applications"}
 icon = "Resources/Glint.icns"
 background = "Resources/dmg-background.png"
 
-volume_name = os.environ.get("GLINT_DMG_VOLUME", "Glint 1.1.2")
+volume_name = os.environ.get("GLINT_DMG_VOLUME", "Glint 1.2.0")
 format = "UDZO"
 
 window_rect = ((180, 180), (700, 440))
